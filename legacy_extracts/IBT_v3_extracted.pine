@@ -1,0 +1,692 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// IBT BINARY DECISION DASHBOARD v3 — PrasaD / KSM X Tech
+// ═══════════════════════════════════════════════════════════════════════════
+// SMC structural engine adapted from © LuxAlgo (CC BY-NC-SA 4.0)
+// https://www.tradingview.com/v/CnB3fSph/
+//
+// PHILOSOPHY: This indicator does NOT give blind BUY/SELL arrows.
+// It first EXPLAINS why a candle is becoming tradable, then shows
+// confidence score, then shows exact ₹ amount to risk.
+// You decide. AI guides. You click in Quotex.
+//
+// ARCHITECTURE (6 Layers from PDF research):
+// Layer 1 — Market Condition Filter (ADX + BB + ATR)
+// Layer 2 — Multi-Timeframe Trend Engine (15m + 1H)
+// Layer 3 — Session + News Time Filter
+// Layer 4 — IBT 4-Step Pattern Logic
+// Layer 5 — Money Management Engine (Two Win Streak + Dynamic 2%)
+// Layer 6 — Live Decision HUD + Reasoning Labels
+// ═══════════════════════════════════════════════════════════════════════════
+//@version=5
+indicator('IBT Binary Dashboard [PrasaD v3]', 'IBT-v3', overlay=true,
+  max_labels_count=300, max_lines_count=300, max_boxes_count=200, max_bars_back=500)
+
+// ─────────────────────────────────────────────────────────────────────────
+// INPUTS
+// ─────────────────────────────────────────────────────────────────────────
+grpL1   = '📊 Layer 1 — Market Condition'
+grpL2   = '📐 Layer 2 — Multi-Timeframe'
+grpL3   = '⏰ Layer 3 — Session & News'
+grpL4   = '🎯 Layer 4 — IBT Strategy'
+grpL5   = '💰 Layer 5 — Money Management'
+grpL6   = '🖥 Layer 6 — Dashboard'
+grpSMC  = '📈 SMC Structure'
+
+// Layer 1
+adxLen      = input.int(14,   'ADX Length',           group=grpL1)
+adxThresh   = input.int(20,   'Trending above',       group=grpL1)
+bbLen       = input.int(20,   'BB Length',            group=grpL1)
+bbMult      = input.float(2.0,'BB Multiplier',        group=grpL1)
+atrLen      = input.int(14,   'ATR Length',           group=grpL1)
+chaosThresh = input.float(2.5,'Chaos ATR multiplier', group=grpL1)
+
+// Layer 2
+htf1        = input.timeframe('15','HTF 1',           group=grpL2)
+htf2        = input.timeframe('60','HTF 2',           group=grpL2)
+emaFast     = input.int(20,   'EMA Fast',             group=grpL2)
+emaSlow     = input.int(50,   'EMA Slow',             group=grpL2)
+
+// Layer 3
+sessionUTC  = input.session('1200-1600','Trade Window (UTC)',group=grpL3)
+newsWarnMin = input.int(30,   'News Buffer (minutes)',group=grpL3)
+// Fixed high-impact event times (UTC) — manually update weekly
+news1H      = input.int(13,   'News Event 1 Hour (UTC)',group=grpL3)
+news1M      = input.int(30,   'News Event 1 Min',    group=grpL3)
+news2H      = input.int(14,   'News Event 2 Hour (UTC)',group=grpL3)
+news2M      = input.int(0,    'News Event 2 Min',    group=grpL3)
+news3H      = input.int(15,   'News Event 3 Hour (UTC)',group=grpL3)
+news3M      = input.int(0,    'News Event 3 Min',    group=grpL3)
+
+// Layer 4 — IBT
+swingLen    = input.int(50,   'Swing Pivot Length',   group=grpL4)
+sweepMem    = input.int(4,    'Sweep Memory (bars)',  group=grpL4)
+sweepWick   = input.float(0.55,'Sweep Wick Ratio',    group=grpL4)
+bagMinPips  = input.float(2.5,'BAG Min Pips',         group=grpL4)
+cfvgMinPips = input.float(2.0,'CFVG Min Pips',        group=grpL4)
+fvgMinPips  = input.float(1.5,'FVG Min Pips',         group=grpL4)
+t1MinPips   = input.float(8.0,'T1 Min Pips',          group=grpL4)
+minScore    = input.int(5,    'Min Signal Score (0-10)',group=grpL4)
+
+// Layer 5 — Money Management
+acctBalance = input.float(10000,'Account Balance (₹)',group=grpL5)
+riskPct     = input.float(2.0,'Risk % per Trade',    group=grpL5)
+payoutPct   = input.float(80.0,'Platform Payout %',  group=grpL5)
+dailyLossCap= input.float(6.0,'Daily Loss Cap %',    group=grpL5)
+maxTradesDay= input.int(4,    'Max Trades Per Day',   group=grpL5)
+
+// Layer 6
+showHUD     = input.bool(true,'Show Live HUD',        group=grpL6)
+showLabels  = input.bool(true,'Show Reasoning Labels',group=grpL6)
+showBarClr  = input.bool(true,'Color bars by score',  group=grpL6)
+showOB      = input.bool(true,'Show Order Blocks',    group=grpL6)
+showPD      = input.bool(true,'Show P/D Zones',       group=grpL6)
+showEQL     = input.bool(true,'Show Equal H/L',       group=grpL6)
+
+// SMC
+showBOS     = input.bool(true,'Show BOS/CHoCH',       group=grpSMC)
+showIntStr  = input.bool(true,'Show Internal Struct.', group=grpSMC)
+showStrWeak = input.bool(true,'Show Strong/Weak H/L', group=grpSMC)
+colorMode   = input.string('Colored','Theme',          group=grpSMC, options=['Colored','Monochrome'])
+
+// ─────────────────────────────────────────────────────────────────────────
+// COLORS
+// ─────────────────────────────────────────────────────────────────────────
+C_BULL   = colorMode == 'Colored' ? #1D9E75 : #b2b5be
+C_BEAR   = colorMode == 'Colored' ? #E24B4A : #5d606b
+C_AMBER  = #BA7517
+C_PURPLE = #534AB7
+C_GRAY   = #888780
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 1 — LAYER 1: MARKET CONDITION FILTER
+// ADX for trend strength, BB width for range detection, ATR for chaos
+// Output: "trending" / "ranging" / "chaos" / "weak"
+// ─────────────────────────────────────────────────────────────────────────
+[diPlus, diMinus, adxVal] = ta.dmi(adxLen, adxLen)
+
+bbBasis = ta.sma(close, bbLen)
+bbDev   = ta.stdev(close, bbLen) * bbMult
+bbUpper = bbBasis + bbDev
+bbLower = bbBasis - bbDev
+bbWidth = (bbUpper - bbLower) / bbBasis  // normalized BB width
+
+atrVal  = ta.atr(atrLen)
+atrSma  = ta.sma(atrVal, 20)
+isChaos = atrVal > atrSma * chaosThresh
+
+// Percentile of BB width over last 100 bars (narrow = ranging)
+bbWidthRank = ta.percentrank(bbWidth, 100)
+
+marketState = isChaos ? "chaos" : adxVal > adxThresh ? "trending" : adxVal < 15 ? "ranging" : "weak"
+mktGreen    = marketState == "trending"
+mktYellow   = marketState == "weak"
+mktRed      = marketState == "ranging" or marketState == "chaos"
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 2 — LAYER 2: MULTI-TIMEFRAME TREND ENGINE
+// Uses confirmed (non-repainting) data from HTF via lookahead_off
+// Compares EMA20 vs EMA50 on each timeframe
+// ─────────────────────────────────────────────────────────────────────────
+htf1_fast = request.security(syminfo.tickerid, htf1, ta.ema(close, emaFast), lookahead=barmerge.lookahead_off)
+htf1_slow = request.security(syminfo.tickerid, htf1, ta.ema(close, emaSlow), lookahead=barmerge.lookahead_off)
+htf1_bull = htf1_fast > htf1_slow
+htf1_bear = htf1_fast < htf1_slow
+
+htf2_fast = request.security(syminfo.tickerid, htf2, ta.ema(close, emaFast), lookahead=barmerge.lookahead_off)
+htf2_slow = request.security(syminfo.tickerid, htf2, ta.ema(close, emaSlow), lookahead=barmerge.lookahead_off)
+htf2_bull = htf2_fast > htf2_slow
+htf2_bear = htf2_fast < htf2_slow
+
+// Traffic light: 0=red, 1=yellow, 2=green
+mtfBullAlign = htf1_bull and htf2_bull ? 2 : (htf1_bull or htf2_bull) ? 1 : 0
+mtfBearAlign = htf1_bear and htf2_bear ? 2 : (htf1_bear or htf2_bear) ? 1 : 0
+
+mtfBullStr = mtfBullAlign == 2 ? "🟢 Full" : mtfBullAlign == 1 ? "🟡 Partial" : "🔴 None"
+mtfBearStr = mtfBearAlign == 2 ? "🟢 Full" : mtfBearAlign == 1 ? "🟡 Partial" : "🔴 None"
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 3 — LAYER 3: SESSION + NEWS TIME FILTER
+// Session: 12:00–16:00 UTC (17:30–21:30 IST = London/NY overlap)
+// News: block 30 mins before/after each pre-set event
+// ─────────────────────────────────────────────────────────────────────────
+inSession = not na(time(timeframe.period, sessionUTC, "UTC"))
+
+// Current UTC time components
+utcH = hour(time, "UTC")
+utcM = minute(time, "UTC")
+utcTotalMins = utcH * 60 + utcM
+
+// Convert news times to total minutes
+n1Total = news1H * 60 + news1M
+n2Total = news2H * 60 + news2M
+n3Total = news3H * 60 + news3M
+
+// Check if within buffer window of any news event
+nearNews1 = math.abs(utcTotalMins - n1Total) <= newsWarnMin
+nearNews2 = math.abs(utcTotalMins - n2Total) <= newsWarnMin
+nearNews3 = math.abs(utcTotalMins - n3Total) <= newsWarnMin
+nearNews  = nearNews1 or nearNews2 or nearNews3
+
+// Layer 3 output
+sessionOK  = inSession and not nearNews
+sessionStr = not inSession ? "Outside Window" : nearNews ? "⚠ NEWS BLOCK" : "✓ Active"
+sessionCol = not inSession ? C_GRAY : nearNews ? C_BEAR : C_BULL
+
+// Show news block warning
+bgcolor(nearNews ? color.new(C_BEAR, 88) : na, title='News Block Zone')
+bgcolor(not inSession and not nearNews ? color.new(C_GRAY, 92) : na, title='Outside Session')
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 4 — LUXALGO STRUCTURAL ENGINE (adapted)
+// Full credit: © LuxAlgo | CC BY-NC-SA 4.0
+// Source: tradingview.com/v/CnB3fSph/
+// ─────────────────────────────────────────────────────────────────────────
+
+// Volatility filtering for OB
+volMeas   = ta.atr(200)
+highVol   = (high - low) >= 2 * volMeas
+pHigh_ob  = highVol ? low  : high
+pLow_ob   = highVol ? high : low
+
+// Leg function (pivot detection)
+leg(sz) =>
+    var int _leg = 0
+    if high[sz] > ta.highest(sz)
+        _leg := 0
+    else if low[sz] < ta.lowest(sz)
+        _leg := 1
+    _leg
+
+// Swing pivot state
+var float swHigh = na; var int swHighTime = na; var int swHighBar = na; var bool swHCrossed = false
+var float swLow  = na; var int swLowTime  = na; var int swLowBar  = na; var bool swLCrossed  = false
+var float inHigh = na; var int inHighTime = na; var int inHighBar = na; var bool inHCrossed  = false
+var float inLow  = na; var int inLowTime  = na; var int inLowBar  = na; var bool inLCrossed  = false
+var int swTrend = 0; var int inTrend = 0
+
+// Trailing for Strong/Weak and PD zones
+var float trailTop = na; var float trailBot = na
+var int trailTopTime = na; var int trailBotTime = na; var int trailTopBar = na; var int trailBotBar = na
+
+// Process swing pivots
+swLeg = leg(swingLen)
+if ta.change(swLeg) != 0
+    if ta.change(swLeg) == 1  // pivot low
+        swLow := low[swingLen]; swLowTime := time[swingLen]; swLowBar := bar_index[swingLen]; swLCrossed := false
+        trailBot := swLow; trailBotTime := swLowTime; trailBotBar := swLowBar
+    else
+        swHigh := high[swingLen]; swHighTime := time[swingLen]; swHighBar := bar_index[swingLen]; swHCrossed := false
+        trailTop := swHigh; trailTopTime := swHighTime; trailTopBar := swHighBar
+
+// Internal pivots (size=5)
+inLeg = leg(5)
+if ta.change(inLeg) != 0
+    if ta.change(inLeg) == 1
+        if na(swLow) or low[5] != swLow
+            inLow := low[5]; inLowTime := time[5]; inLowBar := bar_index[5]; inLCrossed := false
+    else
+        if na(swHigh) or high[5] != swHigh
+            inHigh := high[5]; inHighTime := time[5]; inHighBar := bar_index[5]; inHCrossed := false
+
+// Update trailing extremes
+if not na(high)
+    trailTop := math.max(high, nz(trailTop, high))
+    trailBot := math.min(low,  nz(trailBot, low))
+    if trailTop == high
+        trailTopTime := time; trailTopBar := bar_index
+    if trailBot == low
+        trailBotTime := time; trailBotBar := bar_index
+
+// BOS / CHoCH detection
+var bool bosBull = false; var bool bosBear = false
+var bool chochBull = false; var bool chochBear = false
+var bool inBosBull = false; var bool inBosBear = false
+bosBull := false; bosBear := false; chochBull := false; chochBear := false
+inBosBull := false; inBosBear := false
+
+if not na(swHigh) and not swHCrossed and ta.crossover(close, swHigh)
+    tag = swTrend == -1 ? "CHoCH" : "BOS"
+    chochBull := tag == "CHoCH"; bosBull := tag == "BOS"
+    swHCrossed := true; swTrend := 1
+    if showBOS
+        line.new(swHighTime, swHigh, time, swHigh, xloc=xloc.bar_time, color=C_BULL, style=line.style_solid)
+        label.new(time, swHigh, tag, color=color(na), textcolor=C_BULL, style=label.style_label_down, size=size.small)
+
+if not na(swLow) and not swLCrossed and ta.crossunder(close, swLow)
+    tag = swTrend == 1 ? "CHoCH" : "BOS"
+    chochBear := tag == "CHoCH"; bosBear := tag == "BOS"
+    swLCrossed := true; swTrend := -1
+    if showBOS
+        line.new(swLowTime, swLow, time, swLow, xloc=xloc.bar_time, color=C_BEAR, style=line.style_solid)
+        label.new(time, swLow, tag, color=color(na), textcolor=C_BEAR, style=label.style_label_up, size=size.small)
+
+if not na(inHigh) and not inHCrossed and ta.crossover(close, inHigh) and inHigh != swHigh
+    inBosBull := true; inHCrossed := true; inTrend := 1
+    if showIntStr
+        line.new(inHighTime, inHigh, time, inHigh, xloc=xloc.bar_time, color=C_BULL, style=line.style_dashed)
+        label.new(time, inHigh, inTrend == -1 ? "CHoCH" : "BOS", color=color(na), textcolor=C_BULL, style=label.style_label_down, size=size.tiny)
+
+if not na(inLow) and not inLCrossed and ta.crossunder(close, inLow) and inLow != swLow
+    inBosBear := true; inLCrossed := true; inTrend := -1
+    if showIntStr
+        line.new(inLowTime, inLow, time, inLow, xloc=xloc.bar_time, color=C_BEAR, style=line.style_dashed)
+        label.new(time, inLow, inTrend == 1 ? "CHoCH" : "BOS", color=color(na), textcolor=C_BEAR, style=label.style_label_up, size=size.tiny)
+
+// Order Blocks
+var array<int>   obBullBars = array.new<int>()
+var array<float> obBullHi   = array.new<float>()
+var array<float> obBullLo   = array.new<float>()
+var array<int>   obBearBars = array.new<int>()
+var array<float> obBearHi   = array.new<float>()
+var array<float> obBearLo   = array.new<float>()
+
+if showOB and (bosBull or inBosBull) and bar_index > 1
+    array.unshift(obBullBars, bar_index[1]); array.unshift(obBullHi, pHigh_ob[1]); array.unshift(obBullLo, pLow_ob[1])
+    if array.size(obBullBars) > 5
+        array.pop(obBullBars); array.pop(obBullHi); array.pop(obBullLo)
+
+if showOB and (bosBear or inBosBear) and bar_index > 1
+    array.unshift(obBearBars, bar_index[1]); array.unshift(obBearHi, pHigh_ob[1]); array.unshift(obBearLo, pLow_ob[1])
+    if array.size(obBearBars) > 5
+        array.pop(obBearBars); array.pop(obBearHi); array.pop(obBearLo)
+
+// Draw OBs
+var array<box> bullOBBoxes = array.new<box>()
+var array<box> bearOBBoxes = array.new<box>()
+if barstate.islastconfirmedhistory or barstate.islast
+    for b in bullOBBoxes
+        box.delete(b)
+    for b in bearOBBoxes
+        box.delete(b)
+    array.clear(bullOBBoxes); array.clear(bearOBBoxes)
+    if showOB
+        for i = 0 to math.min(4, array.size(obBullBars) - 1)
+            bIdx = array.get(obBullBars,i); bHi = array.get(obBullHi,i); bLo = array.get(obBullLo,i)
+            if not (low <= bHi and low < bLo)
+                array.push(bullOBBoxes, box.new(bIdx, bHi, bar_index+5, bLo, border_color=color.new(#3179f5,0), bgcolor=color.new(#3179f5,80)))
+        for i = 0 to math.min(4, array.size(obBearBars) - 1)
+            bIdx = array.get(obBearBars,i); bHi = array.get(obBearHi,i); bLo = array.get(obBearLo,i)
+            if not (high >= bLo and high > bHi)
+                array.push(bearOBBoxes, box.new(bIdx, bHi, bar_index+5, bLo, border_color=color.new(#f77c80,0), bgcolor=color.new(#f77c80,80)))
+
+// Equal Highs / Equal Lows
+var float lastEqlH = na; var int lastEqlHTime = na; var int lastEqlHBar = na
+var float lastEqlL = na; var int lastEqlLTime = na; var int lastEqlLBar = na
+eqlLeg = leg(3)
+var bool eqlDetH = false; var bool eqlDetL = false
+eqlDetH := false; eqlDetL := false
+if showEQL and ta.change(eqlLeg) != 0
+    if ta.change(eqlLeg) == -1  // pivot high
+        if not na(lastEqlH) and math.abs(lastEqlH - high[3]) < 0.1 * volMeas
+            line.new(lastEqlHTime, lastEqlH, time[3], high[3], xloc=xloc.bar_time, color=C_BEAR, style=line.style_dotted)
+            label.new(math.round((lastEqlHBar+bar_index[3])/2), lastEqlH, "EQH", color=color(na), textcolor=C_BEAR, style=label.style_label_down, size=size.tiny)
+            eqlDetH := true
+        lastEqlH := high[3]; lastEqlHTime := time[3]; lastEqlHBar := bar_index[3]
+    else
+        if not na(lastEqlL) and math.abs(lastEqlL - low[3]) < 0.1 * volMeas
+            line.new(lastEqlLTime, lastEqlL, time[3], low[3], xloc=xloc.bar_time, color=C_BULL, style=line.style_dotted)
+            label.new(math.round((lastEqlLBar+bar_index[3])/2), lastEqlL, "EQL", color=color(na), textcolor=C_BULL, style=label.style_label_up, size=size.tiny)
+            eqlDetL := true
+        lastEqlL := low[3]; lastEqlLTime := time[3]; lastEqlLBar := bar_index[3]
+
+// Strong / Weak H/L
+if showStrWeak and barstate.islast and not na(trailTop) and not na(trailBot)
+    rBar = last_bar_time + 15*(time-time[1])
+    line.new(trailTopTime, trailTop, rBar, trailTop, xloc=xloc.bar_time, color=C_BEAR)
+    label.new(rBar, trailTop, swTrend == -1 ? "Strong High" : "Weak High", xloc=xloc.bar_time, color=color(na), textcolor=C_BEAR, style=label.style_label_left, size=size.tiny)
+    line.new(trailBotTime, trailBot, rBar, trailBot, xloc=xloc.bar_time, color=C_BULL)
+    label.new(rBar, trailBot, swTrend == 1 ? "Strong Low" : "Weak Low", xloc=xloc.bar_time, color=color(na), textcolor=C_BULL, style=label.style_label_up, size=size.tiny)
+
+// Premium / Discount Zones
+pdMid     = not na(trailTop) and not na(trailBot) ? math.avg(trailTop,trailBot) : na
+inDiscount = not na(pdMid) and close < pdMid
+inPremium  = not na(pdMid) and close > pdMid
+
+if showPD and barstate.islast and not na(trailTop) and not na(trailBot)
+    eqLvl = math.avg(trailTop,trailBot)
+    box.new(trailTopBar, trailTop, bar_index+8, 0.95*trailTop+0.05*trailBot, bgcolor=color.new(C_BEAR,80), border_color=color(na))
+    box.new(trailTopBar, 0.525*trailTop+0.475*trailBot, bar_index+8, 0.525*trailBot+0.475*trailTop, bgcolor=color.new(C_GRAY,82), border_color=color(na))
+    box.new(trailTopBar, 0.95*trailBot+0.05*trailTop, bar_index+8, trailBot, bgcolor=color.new(C_BULL,80), border_color=color(na))
+    lp = math.round(0.5*(trailTopBar+last_bar_index))
+    label.new(lp, trailTop, "Premium", color=color(na), textcolor=C_BEAR, style=label.style_label_down, size=size.tiny)
+    label.new(lp, eqLvl,  "Equilibrium", color=color(na), textcolor=C_GRAY, style=label.style_label_left, size=size.tiny)
+    label.new(lp, trailBot,"Discount", color=color(na), textcolor=C_BULL, style=label.style_label_up, size=size.tiny)
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 5 — IBT GAP DETECTION (Layer 4)
+// ─────────────────────────────────────────────────────────────────────────
+pipSize   = syminfo.mintick * 10  // approximate pip for forex
+
+bullBAG = low > high[2] and close[1] > high[2] and (low - high[2])/pipSize >= bagMinPips
+bearBAG = high < low[2] and close[1] < low[2]  and (low[2] - high)/pipSize >= bagMinPips
+
+doubleBullBAG = bullBAG and low[1] > high[3] and close[2] > high[3]
+doubleBearBAG = bearBAG and high[1] < low[3] and close[2] < low[3]
+validBullBAG  = bullBAG and not doubleBullBAG
+validBearBAG  = bearBAG and not doubleBearBAG
+
+bullCFVG = (low > high[2]) and not bullBAG and close > open and close[1] < open[1] and (low-high[2])/pipSize >= cfvgMinPips
+bearCFVG = (high < low[2]) and not bearBAG and close < open and close[1] > open[1] and (low[2]-high)/pipSize >= cfvgMinPips
+
+cleanBullFVG = (low > high[2]) and not bullBAG and not bullCFVG and (low-high[2])/pipSize >= fvgMinPips
+cleanBearFVG = (high < low[2]) and not bearBAG and not bearCFVG and (low[2]-high)/pipSize >= fvgMinPips
+
+impulseUp = close[1]>open[1] and close[2]>open[2] and close[3]>open[3] and close[4]>open[4]
+impulseDn = close[1]<open[1] and close[2]<open[2] and close[3]<open[3] and close[4]<open[4]
+isMG      = (bullBAG and impulseUp) or (bearBAG and impulseDn)
+
+bullSweep = not na(swLow)  and low  < swLow  and close > swLow and (math.abs(close-open)/(high-low+0.0001)) < (1-sweepWick)
+bearSweep = not na(swHigh) and high > swHigh and close < swHigh and (math.abs(close-open)/(high-low+0.0001)) < (1-sweepWick)
+
+bullSweepRecent = ta.barssince(bullSweep) <= sweepMem
+bearSweepRecent = ta.barssince(bearSweep) <= sweepMem
+
+// IFC: large wick, body < 25% range
+bodyRatio = (high-low) > 0 ? math.abs(close-open)/(high-low) : 1
+isIFC     = bodyRatio < 0.25 and (high-low) > atrVal * 0.8
+bullIFC   = isIFC and low < low[1] and close > open
+bearIFC   = isIFC and high > high[1] and close < open
+
+// Order Flow direction (gap count bias over 10 bars)
+var int bullGC = 0; var int bearGC = 0
+bullGC := 0; bearGC := 0
+for k = 1 to 10
+    if low[k] > high[k+2]
+        bullGC += 1
+    if high[k] < low[k+2]
+        bearGC += 1
+ofDir = bullGC > bearGC * 1.5 ? 1 : bearGC > bullGC * 1.5 ? -1 : 0
+
+// Ranging: both sweeps active = skip
+ranging = bullSweepRecent and bearSweepRecent
+
+// Gap background
+bgcolor(validBullBAG and not isMG  ? color.new(#1D9E75,88) : na, title='Bull BAG')
+bgcolor(validBearBAG and not isMG  ? color.new(#1D9E75,88) : na, title='Bear BAG')
+bgcolor(bullCFVG or bearCFVG       ? color.new(#9FE1CB,85) : na, title='CFVG')
+bgcolor(cleanBullFVG or cleanBearFVG ? color.new(#378ADD,90) : na, title='FVG')
+bgcolor(isMG                       ? color.new(C_BEAR,85) : na, title='MG Skip')
+bgcolor(doubleBullBAG or doubleBearBAG ? color.new(C_GRAY,88) : na, title='Double BAG Wait')
+
+// Sweep markers
+plotshape(bullSweep, 'Bull Sweep', location.belowbar, color=C_PURPLE, style=shape.triangleup,   size=size.tiny, text="SW↑")
+plotshape(bearSweep, 'Bear Sweep', location.abovebar, color=C_PURPLE, style=shape.triangledown, size=size.tiny, text="SW↓")
+plotshape(isMG, 'MG Skip', location.abovebar, color=C_BEAR, style=shape.xcross, size=size.small, text="MG")
+plotshape(doubleBullBAG or doubleBearBAG, 'Double BAG', location.abovebar, color=C_AMBER, style=shape.xcross, size=size.small, text="Wait50%")
+
+// T1 clearance check
+t1ClearBull = not na(swHigh) and (swHigh - close) / pipSize >= t1MinPips
+t1ClearBear = not na(swLow)  and (close - swLow)  / pipSize >= t1MinPips
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 6 — SIGNAL SCORING SYSTEM
+// Score 0-10 based on confluences from all layers
+// ─────────────────────────────────────────────────────────────────────────
+
+// Gap type score (A-class = 3, B-class = 1)
+bullGapSc = validBullBAG or bullCFVG ? 3 : cleanBullFVG ? 1 : 0
+bearGapSc = validBearBAG or bearCFVG ? 3 : cleanBearFVG ? 1 : 0
+
+// Sweep score (IFC = +1 bonus)
+bullSwSc  = bullSweepRecent ? (bullIFC ? 2 : 1) : 0
+bearSwSc  = bearSweepRecent ? (bearIFC ? 2 : 1) : 0
+
+// Structure score: BOS/CHoCH alignment
+bullStSc  = (bosBull or inBosBull or chochBull) ? 1 : 0
+bearStSc  = (bosBear or inBosBear or chochBear) ? 1 : 0
+
+// PD zone score
+bullPDSc  = inDiscount ? 1 : 0
+bearPDSc  = inPremium  ? 1 : 0
+
+// MTF alignment score
+bullMTFSc = mtfBullAlign == 2 ? 2 : mtfBullAlign == 1 ? 1 : 0
+bearMTFSc = mtfBearAlign == 2 ? 2 : mtfBearAlign == 1 ? 1 : 0
+
+// Market condition score
+mktSc = mktGreen ? 1 : 0
+
+// Total
+bullScore = bullGapSc + bullSwSc + bullStSc + bullPDSc + bullMTFSc + mktSc
+bearScore = bearGapSc + bearSwSc + bearStSc + bearPDSc + bearMTFSc + mktSc
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 7 — SIGNAL GATES (all 4 steps + all filters)
+// ─────────────────────────────────────────────────────────────────────────
+buyA = not isMG and not ranging and sessionOK
+     and (validBullBAG or bullCFVG)
+     and bullSweepRecent
+     and (swTrend == 1 or inTrend == 1)
+     and t1ClearBull
+     and mktGreen or mktYellow
+     and bullScore >= minScore
+
+sellA = not isMG and not ranging and sessionOK
+      and (validBearBAG or bearCFVG)
+      and bearSweepRecent
+      and (swTrend == -1 or inTrend == -1)
+      and t1ClearBear
+      and mktGreen or mktYellow
+      and bearScore >= minScore
+
+buyB = not isMG and not ranging and sessionOK
+     and cleanBullFVG and bullSweepRecent
+     and bullScore >= minScore
+
+sellB = not isMG and not ranging and sessionOK
+      and cleanBearFVG and bearSweepRecent
+      and bearScore >= minScore
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 8 — MONEY MANAGEMENT CALCULATIONS (Layer 5)
+// Based on: Dynamic 2% Flat Betting + Two Win Streak Strategy
+// ─────────────────────────────────────────────────────────────────────────
+payoutMult   = 1 + payoutPct / 100  // e.g., 1.80
+breakEven    = 1 / payoutMult       // e.g., 0.556
+
+// Dynamic 2% stake
+stakeAmt     = acctBalance * riskPct / 100
+winPayout    = stakeAmt * (payoutPct / 100)
+dailyMaxLoss = acctBalance * dailyLossCap / 100
+
+// Two Win Streak strategy (from Lambo course — best overall MM for binary)
+// Trade 1: base stake. Trade 2: base + profit from trade 1
+twoWinT1  = stakeAmt
+twoWinT2  = stakeAmt + (stakeAmt * payoutPct / 100)
+twoWinRet = (twoWinT1 * payoutPct/100) + (twoWinT2 * payoutPct/100)
+twoWinRisk = stakeAmt  // max loss = only base amount
+
+// Expected Value at target 65% win rate
+evPerTrade = (0.65 * payoutPct/100) - (0.35 * 1.0)  // per ₹1 risked
+
+// Bar coloring based on score
+var color barClr = color.new(C_GRAY, 80)
+if showBarClr
+    barClr := buyA or sellA ? color.new(#1D9E75, 60) : buyB or sellB ? color.new(#1D9E75, 80) : color.new(C_GRAY, 90)
+barcolor(barClr, title='Signal bar color')
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 9 — DYNAMIC REASONING LABELS (The core innovation)
+// Uses label.new() with \n for multi-line — NOT plotshape (can't do dynamic text)
+// Shows FULL reasoning why candle is tradable BEFORE you click
+// Based on PDF research: "explain first, then decide"
+// ─────────────────────────────────────────────────────────────────────────
+
+// Helper: pip value string
+pipsStr(diff) => str.tostring(math.round(diff / pipSize, 1)) + "p"
+
+// Gap type name
+gapTypeBull = validBullBAG ? "BAG ✓" : bullCFVG ? "CFVG ✓" : "FVG"
+gapTypeBear = validBearBAG ? "BAG ✓" : bearCFVG ? "CFVG ✓" : "FVG"
+
+// Delete old labels (label array for garbage collection)
+var array<label> sigLabels = array.new<label>()
+
+if showLabels and barstate.isconfirmed
+    if buyA or buyB
+        // Build reasoning string dynamically
+        rText = "━━ IBT CALL SETUP ━━\n"
+        rText += "Score: " + str.tostring(bullScore) + "/10\n"
+        rText += "Gap: " + gapTypeBull + "\n"
+        rText += "Sweep: " + (bullSweepRecent ? (bullIFC ? "✓ IFC" : "✓") : "✗") + "\n"
+        rText += "Structure: " + (bosBull or inBosBull ? "BOS ✓" : "—") + "\n"
+        rText += "PD Zone: " + (inDiscount ? "Discount ✓" : "—") + "\n"
+        rText += "MTF: " + mtfBullStr + "\n"
+        rText += "Market: " + marketState + "\n"
+        rText += "T1 clear: " + (t1ClearBull ? "✓ " + pipsStr(nz(swHigh,close)-close) : "✗") + "\n"
+        rText += "Risk: ₹" + str.tostring(math.round(stakeAmt))
+        lbl = label.new(bar_index, low, rText,
+          color=buyA ? color.new(#1D9E75, 20) : color.new(#1D9E75, 45),
+          textcolor=color.white, style=label.style_label_up, size=size.small)
+        array.push(sigLabels, lbl)
+
+    else if sellA or sellB
+        rText = "━━ IBT PUT SETUP ━━\n"
+        rText += "Score: " + str.tostring(bearScore) + "/10\n"
+        rText += "Gap: " + gapTypeBear + "\n"
+        rText += "Sweep: " + (bearSweepRecent ? (bearIFC ? "✓ IFC" : "✓") : "✗") + "\n"
+        rText += "Structure: " + (bosBear or inBosBear ? "BOS ✓" : "—") + "\n"
+        rText += "PD Zone: " + (inPremium ? "Premium ✓" : "—") + "\n"
+        rText += "MTF: " + mtfBearStr + "\n"
+        rText += "Market: " + marketState + "\n"
+        rText += "T1 clear: " + (t1ClearBear ? "✓ " + pipsStr(close-nz(swLow,close)) : "✗") + "\n"
+        rText += "Risk: ₹" + str.tostring(math.round(stakeAmt))
+        lbl = label.new(bar_index, high, rText,
+          color=sellA ? color.new(#E24B4A, 20) : color.new(#E24B4A, 45),
+          textcolor=color.white, style=label.style_label_down, size=size.small)
+        array.push(sigLabels, lbl)
+
+    // Keep only last 20 labels (garbage collection)
+    while array.size(sigLabels) > 20
+        label.delete(array.shift(sigLabels))
+
+    // "Candle developing" alert label when setup is building (1 step away)
+    if not (buyA or buyB or sellA or sellB)
+        // Show a quiet "watching" label if 2+ conditions are met
+        developing = (bullSweepRecent and (validBullBAG or bullCFVG) and not t1ClearBull and sessionOK)
+                  or (bearSweepRecent and (validBearBAG or bearCFVG) and not t1ClearBear and sessionOK)
+        if developing
+            watchText = "👁 Watch — setup forming\nSweep ✓ | Gap ✓ | Target?"
+            lbl2 = label.new(bar_index, close, watchText,
+              color=color.new(C_AMBER, 40), textcolor=color.white,
+              style=label.style_label_left, size=size.tiny)
+            array.push(sigLabels, lbl2)
+            while array.size(sigLabels) > 20
+                label.delete(array.shift(sigLabels))
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 10 — LIVE DECISION HUD (Layer 6)
+// Permanent table anchored top-right — visible always regardless of zoom
+// Includes: trend, session, money management, score, EV
+// Updated only on barstate.islast for performance (PDF research)
+// ─────────────────────────────────────────────────────────────────────────
+var table hud = table.new(position.top_right, 2, 18,
+  bgcolor=color.new(#2C2C2A, 8),
+  border_width=1, border_color=color.new(C_GRAY, 60),
+  frame_width=1, frame_color=color.new(C_GRAY, 40))
+
+if showHUD and barstate.islast
+    // Header
+    table.cell(hud, 0, 0, "IBT DASHBOARD", text_color=#1D9E75, text_size=size.small, bgcolor=color.new(#085041,20), text_halign=text.align_center)
+    table.cell(hud, 1, 0, "PrasaD v3",     text_color=#9FE1CB, text_size=size.small, bgcolor=color.new(#085041,20), text_halign=text.align_center)
+
+    // Layer 1 — Market
+    mktCol = mktGreen ? #1D9E75 : mktYellow ? C_AMBER : C_BEAR
+    table.cell(hud, 0, 1, "Market",    text_color=color.new(#D3D1C7,0), text_size=size.tiny)
+    table.cell(hud, 1, 1, marketState + " ADX:" + str.tostring(math.round(adxVal,1)), text_color=mktCol, text_size=size.tiny)
+
+    // Layer 2 — MTF
+    mtfBullC = mtfBullAlign == 2 ? #1D9E75 : mtfBullAlign == 1 ? C_AMBER : C_BEAR
+    mtfBearC = mtfBearAlign == 2 ? #1D9E75 : mtfBearAlign == 1 ? C_AMBER : C_BEAR
+    table.cell(hud, 0, 2, "MTF Bull",  text_color=color.new(#D3D1C7,0), text_size=size.tiny)
+    table.cell(hud, 1, 2, mtfBullStr,  text_color=mtfBullC, text_size=size.tiny)
+    table.cell(hud, 0, 3, "MTF Bear",  text_color=color.new(#D3D1C7,0), text_size=size.tiny)
+    table.cell(hud, 1, 3, mtfBearStr,  text_color=mtfBearC, text_size=size.tiny)
+
+    // Layer 3 — Session
+    table.cell(hud, 0, 4, "Session",   text_color=color.new(#D3D1C7,0), text_size=size.tiny)
+    table.cell(hud, 1, 4, sessionStr,  text_color=sessionCol, text_size=size.tiny)
+
+    // Layer 4 — IBT state
+    swpStr = bullSweepRecent ? "Bull ✓" + (bullIFC ? " IFC" : "") : bearSweepRecent ? "Bear ✓" + (bearIFC ? " IFC" : "") : "None"
+    swpCol = bullSweepRecent ? #1D9E75 : bearSweepRecent ? C_BEAR : C_GRAY
+    table.cell(hud, 0, 5, "Sweep",     text_color=color.new(#D3D1C7,0), text_size=size.tiny)
+    table.cell(hud, 1, 5, swpStr,      text_color=swpCol, text_size=size.tiny)
+
+    trendStr = swTrend == 1 ? "↑ Bull" : swTrend == -1 ? "↓ Bear" : "—"
+    trendCol = swTrend == 1 ? #1D9E75 : swTrend == -1 ? C_BEAR : C_GRAY
+    table.cell(hud, 0, 6, "Structure", text_color=color.new(#D3D1C7,0), text_size=size.tiny)
+    table.cell(hud, 1, 6, trendStr,    text_color=trendCol, text_size=size.tiny)
+
+    pdStr = inDiscount ? "Discount ✓" : inPremium ? "Premium ✓" : "Equilibrium"
+    pdCol = inDiscount ? #1D9E75 : inPremium ? C_BEAR : C_GRAY
+    table.cell(hud, 0, 7, "P/D Zone",  text_color=color.new(#D3D1C7,0), text_size=size.tiny)
+    table.cell(hud, 1, 7, pdStr,       text_color=pdCol, text_size=size.tiny)
+
+    mgStr = isMG ? "⚠ SKIP" : ranging ? "RANGING" : "Clear"
+    mgCol = isMG ? C_BEAR : ranging ? C_AMBER : #1D9E75
+    table.cell(hud, 0, 8, "MG/Range",  text_color=color.new(#D3D1C7,0), text_size=size.tiny)
+    table.cell(hud, 1, 8, mgStr,       text_color=mgCol, text_size=size.tiny)
+
+    // Signal
+    sigStr = buyA  ? "▲ CALL A ★" + str.tostring(bullScore) :
+             sellA ? "▼ PUT A ★"  + str.tostring(bearScore) :
+             buyB  ? "▲ call B "  + str.tostring(bullScore) :
+             sellB ? "▼ put B "   + str.tostring(bearScore) : "Waiting..."
+    sigCol = (buyA or buyB) ? #1D9E75 : (sellA or sellB) ? C_BEAR : C_GRAY
+    table.cell(hud, 0, 9, "Signal",    text_color=color.new(#D3D1C7,0), text_size=size.tiny)
+    table.cell(hud, 1, 9, sigStr,      text_color=sigCol, text_size=size.tiny)
+
+    // Divider
+    table.cell(hud, 0, 10, "─ MONEY MGMT ─", text_color=C_AMBER, text_size=size.tiny, text_halign=text.align_center)
+    table.cell(hud, 1, 10, "2% Flat + 2WS",  text_color=C_AMBER, text_size=size.tiny, text_halign=text.align_center)
+
+    // Layer 5 — Money Management
+    table.cell(hud, 0, 11, "Balance",   text_color=color.new(#D3D1C7,0), text_size=size.tiny)
+    table.cell(hud, 1, 11, "₹" + str.tostring(math.round(acctBalance)), text_color=color.white, text_size=size.tiny)
+
+    table.cell(hud, 0, 12, "Stake (2%)", text_color=color.new(#D3D1C7,0), text_size=size.tiny)
+    table.cell(hud, 1, 12, "₹" + str.tostring(math.round(stakeAmt)), text_color=#9FE1CB, text_size=size.tiny)
+
+    table.cell(hud, 0, 13, "Win Payout", text_color=color.new(#D3D1C7,0), text_size=size.tiny)
+    table.cell(hud, 1, 13, "+₹" + str.tostring(math.round(winPayout)), text_color=#1D9E75, text_size=size.tiny)
+
+    table.cell(hud, 0, 14, "2WS Trade1", text_color=color.new(#D3D1C7,0), text_size=size.tiny)
+    table.cell(hud, 1, 14, "₹" + str.tostring(math.round(twoWinT1)), text_color=color.white, text_size=size.tiny)
+
+    table.cell(hud, 0, 15, "2WS Trade2", text_color=color.new(#D3D1C7,0), text_size=size.tiny)
+    table.cell(hud, 1, 15, "₹" + str.tostring(math.round(twoWinT2)), text_color=#9FE1CB, text_size=size.tiny)
+
+    table.cell(hud, 0, 16, "Daily Cap",  text_color=color.new(#D3D1C7,0), text_size=size.tiny)
+    table.cell(hud, 1, 16, "₹" + str.tostring(math.round(dailyMaxLoss)) + " max loss", text_color=C_BEAR, text_size=size.tiny)
+
+    evStr = "EV @65%: +" + str.tostring(math.round(evPerTrade * 100, 1)) + "% per ₹"
+    table.cell(hud, 0, 17, "Edge",       text_color=color.new(#D3D1C7,0), text_size=size.tiny)
+    table.cell(hud, 1, 17, evStr,        text_color=C_AMBER, text_size=size.tiny)
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 11 — ALERTS
+// ─────────────────────────────────────────────────────────────────────────
+
+// Entry signals with full context in message
+alertcondition(buyA,  'IBT ▲ CALL A-Class', 'IBT CALL A-Class: ' + gapTypeBull + ' | Score ready | Confirm T1 clear | Check HUD for ₹ stake')
+alertcondition(sellA, 'IBT ▼ PUT A-Class',  'IBT PUT A-Class: '  + gapTypeBear + ' | Score ready | Confirm T1 clear | Check HUD for ₹ stake')
+alertcondition(buyB,  'IBT ▲ call B-Class', 'IBT call B — FVG + sweep. Lower confidence. Read label before clicking.')
+alertcondition(sellB, 'IBT ▼ put B-Class',  'IBT put B — FVG + sweep. Lower confidence. Read label before clicking.')
+
+// Session alerts
+alertcondition(nearNews, 'IBT ⚠ NEWS BLOCK', 'News event within 30 min. Stop taking trades. Wait for news to pass.')
+alertcondition(not inSession[1] and inSession, 'IBT Session Open', 'London/NY overlap now active. IBT trading window open. Check pairs.')
+alertcondition(inSession[1] and not inSession, 'IBT Session Close', 'Trading window closing. No new trades. Review your journal.')
+
+// Structure
+alertcondition(bosBull or inBosBull,  'IBT BOS Bullish',  'Bullish BOS confirmed by LuxAlgo engine. Bias = UP.')
+alertcondition(bosBear or inBosBear,  'IBT BOS Bearish',  'Bearish BOS confirmed. Bias = DOWN.')
+alertcondition(chochBull,             'IBT CHoCH Bullish','CHoCH Bull — possible reversal. Wait for IBT confirmation.')
+alertcondition(chochBear,             'IBT CHoCH Bearish','CHoCH Bear — possible reversal. Wait for IBT confirmation.')
+alertcondition(bullSweep,             'IBT Sweep ↑',      'Bullish liquidity sweep. Watch for entry setup next 4 bars.')
+alertcondition(bearSweep,             'IBT Sweep ↓',      'Bearish liquidity sweep. Watch for entry setup next 4 bars.')
+alertcondition(isMG,                  'IBT ⚠ MG Zone',   'Manipulation Gap — SKIP this candle. Do not trade.')
+alertcondition(ranging,               'IBT Ranging Market','Both sweeps active. Ranging. Stay out completely.')
+alertcondition(eqlDetH,               'IBT Equal Highs',  'Equal Highs detected. Dense liquidity above. Wait for sweep.')
+alertcondition(eqlDetL,               'IBT Equal Lows',   'Equal Lows detected. Dense liquidity below. Wait for sweep.')

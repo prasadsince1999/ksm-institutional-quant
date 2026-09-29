@@ -1,0 +1,12 @@
+{
+  "XAUUSD": "https://h.uguu.se/iYKwiKJD.parquet",
+  "EURUSD": "https://h.uguu.se/NqqZFCKQ.parquet",
+  "USDJPY": "https://h.uguu.se/ydNURwTV.parquet",
+  "GBPJPY": "https://h.uguu.se/XllchjgZ.parquet",
+  "GBPUSD": "https://d.uguu.se/EMlEfGwC.parquet",
+  "USDCAD": "https://n.uguu.se/gjGWBhuT.parquet",
+  "USDCHF": "https://n.uguu.se/tyGkWUxf.parquet",
+  "AUDUSD": "https://n.uguu.se/kBKNbhtu.parquet",
+  "EURJPY": "https://n.uguu.se/MVAXuOZU.parquet",
+  "NZDUSD": "https://n.uguu.se/LdsqQVqw.parquet"
+}

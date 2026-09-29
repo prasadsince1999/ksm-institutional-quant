@@ -1,0 +1,392 @@
+[
+  {
+    "timestamp": "2026-09-21T09:44:00.918730+00:00",
+    "symbol": "AUDUSDm",
+    "event_type": "INTEGRATION_VERIFIED",
+    "ticket": 5132052917,
+    "entry": 0.71255,
+    "sl": 0.71205,
+    "tp": 0.71285,
+    "filename": "20260921_094359_AUDUSDm_INTEGRATION_VERIFIED_T5132052917.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260921_094359_AUDUSDm_INTEGRATION_VERIFIED_T5132052917.png",
+    "extra": {
+      "lots": 0.09,
+      "archetype": "TREND_FVG_PULLBACK",
+      "result": "(+.70 WIN)"
+    }
+  },
+  {
+    "timestamp": "2026-09-21T09:56:13.773009+00:00",
+    "symbol": "AUDUSDm",
+    "event_type": "TEST_SAFE_RENDER",
+    "ticket": 99999,
+    "entry": 0.71255,
+    "sl": null,
+    "tp": null,
+    "filename": "20260921_095613_AUDUSDm_TEST_SAFE_RENDER_T99999.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260921_095613_AUDUSDm_TEST_SAFE_RENDER_T99999.png",
+    "extra": {
+      "result": "WIN"
+    }
+  },
+  {
+    "timestamp": "2026-09-21T10:20:17.547734+00:00",
+    "symbol": "AUDUSDm",
+    "event_type": "TRADE_CLOSED",
+    "ticket": 4427494776,
+    "entry": 0.71255,
+    "sl": null,
+    "tp": null,
+    "filename": "20260921_102017_AUDUSDm_TRADE_CLOSED_T4427494776.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260921_102017_AUDUSDm_TRADE_CLOSED_T4427494776.png",
+    "extra": {
+      "profit_usd": 2.7,
+      "outcome": "WIN"
+    }
+  },
+  {
+    "timestamp": "2026-09-21T14:42:48.033995+00:00",
+    "symbol": "AUDUSDm",
+    "event_type": "TRADE_CLOSED",
+    "ticket": 4427494776,
+    "entry": 0.71255,
+    "sl": null,
+    "tp": null,
+    "filename": "20260921_144247_AUDUSDm_TRADE_CLOSED_T4427494776.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260921_144247_AUDUSDm_TRADE_CLOSED_T4427494776.png",
+    "extra": {
+      "profit_usd": 2.7,
+      "outcome": "WIN"
+    }
+  },
+  {
+    "timestamp": "2026-09-21T14:43:00.820816+00:00",
+    "symbol": "AUDUSDm",
+    "event_type": "TRADE_CLOSED",
+    "ticket": 4427494776,
+    "entry": 0.71255,
+    "sl": null,
+    "tp": null,
+    "filename": "20260921_144300_AUDUSDm_TRADE_CLOSED_T4427494776.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260921_144300_AUDUSDm_TRADE_CLOSED_T4427494776.png",
+    "extra": {
+      "profit_usd": 2.7,
+      "outcome": "WIN"
+    }
+  },
+  {
+    "timestamp": "2026-09-21T14:46:50.824538+00:00",
+    "symbol": "AUDUSDm",
+    "event_type": "TRADE_CLOSED",
+    "ticket": 4427494776,
+    "entry": 0.71255,
+    "sl": null,
+    "tp": null,
+    "filename": "20260921_144650_AUDUSDm_TRADE_CLOSED_T4427494776.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260921_144650_AUDUSDm_TRADE_CLOSED_T4427494776.png",
+    "extra": {
+      "profit_usd": 2.7,
+      "outcome": "WIN"
+    }
+  },
+  {
+    "timestamp": "2026-09-21T15:05:57.700747+00:00",
+    "symbol": "AUDUSDm",
+    "event_type": "TRADE_CLOSED",
+    "ticket": 4427494776,
+    "entry": 0.71255,
+    "sl": null,
+    "tp": null,
+    "filename": "20260921_150557_AUDUSDm_TRADE_CLOSED_T4427494776.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260921_150557_AUDUSDm_TRADE_CLOSED_T4427494776.png",
+    "extra": {
+      "profit_usd": 2.7,
+      "outcome": "WIN"
+    }
+  },
+  {
+    "timestamp": "2026-09-21T15:06:17.762965+00:00",
+    "symbol": "EURUSDm",
+    "event_type": "LIMIT_ORDER_PLACED",
+    "ticket": 5135222824,
+    "entry": 1.14763,
+    "sl": 1.14813,
+    "tp": 1.14733,
+    "filename": "20260921_150617_EURUSDm_LIMIT_ORDER_PLACED_T5135222824.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260921_150617_EURUSDm_LIMIT_ORDER_PLACED_T5135222824.png",
+    "extra": {
+      "lots": 0.09,
+      "archetype": "TREND_FVG_PULLBACK"
+    }
+  },
+  {
+    "timestamp": "2026-09-22T12:52:10.515868+00:00",
+    "symbol": "EURUSDm",
+    "event_type": "LIMIT_ORDER_PLACED",
+    "ticket": 5141761072,
+    "entry": 1.14579,
+    "sl": 1.14654,
+    "tp": 1.14534,
+    "filename": "20260922_125210_EURUSDm_LIMIT_ORDER_PLACED_T5141761072.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260922_125210_EURUSDm_LIMIT_ORDER_PLACED_T5141761072.png",
+    "extra": {
+      "lots": 0.06,
+      "archetype": "TREND_FVG_PULLBACK"
+    }
+  },
+  {
+    "timestamp": "2026-09-22T13:10:15.523630+00:00",
+    "symbol": "EURJPYm",
+    "event_type": "LIMIT_ORDER_PLACED",
+    "ticket": 5141919702,
+    "entry": 180.201,
+    "sl": 180.281,
+    "tp": 180.153,
+    "filename": "20260922_131015_EURJPYm_LIMIT_ORDER_PLACED_T5141919702.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260922_131015_EURJPYm_LIMIT_ORDER_PLACED_T5141919702.png",
+    "extra": {
+      "lots": 0.11,
+      "archetype": "TREND_FVG_PULLBACK"
+    }
+  },
+  {
+    "timestamp": "2026-09-22T13:28:16.958882+00:00",
+    "symbol": "EURUSDm",
+    "event_type": "TRADE_CLOSED",
+    "ticket": 4435810398,
+    "entry": 1.14579,
+    "sl": null,
+    "tp": null,
+    "filename": "20260922_132816_EURUSDm_TRADE_CLOSED_T4435810398.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260922_132816_EURUSDm_TRADE_CLOSED_T4435810398.png",
+    "extra": {
+      "profit_usd": 2.7,
+      "outcome": "WIN"
+    }
+  },
+  {
+    "timestamp": "2026-09-22T13:43:18.198575+00:00",
+    "symbol": "EURJPYm",
+    "event_type": "TRADE_CLOSED",
+    "ticket": 4435935166,
+    "entry": 180.201,
+    "sl": null,
+    "tp": null,
+    "filename": "20260922_134318_EURJPYm_TRADE_CLOSED_T4435935166.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260922_134318_EURJPYm_TRADE_CLOSED_T4435935166.png",
+    "extra": {
+      "profit_usd": 3.36,
+      "outcome": "WIN"
+    }
+  },
+  {
+    "timestamp": "2026-09-22T14:23:29.780154+00:00",
+    "symbol": "EURJPYm",
+    "event_type": "LIMIT_ORDER_PLACED",
+    "ticket": 5142621178,
+    "entry": 180.111,
+    "sl": 180.191,
+    "tp": 180.063,
+    "filename": "20260922_142329_EURJPYm_LIMIT_ORDER_PLACED_T5142621178.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260922_142329_EURJPYm_LIMIT_ORDER_PLACED_T5142621178.png",
+    "extra": {
+      "lots": 0.28,
+      "archetype": "TREND_FVG_PULLBACK"
+    }
+  },
+  {
+    "timestamp": "2026-09-22T15:38:46.520775+00:00",
+    "symbol": "AUDUSDm",
+    "event_type": "LIMIT_ORDER_PLACED",
+    "ticket": 5143244643,
+    "entry": 0.71037,
+    "sl": 0.71089,
+    "tp": 0.71006,
+    "filename": "20260922_153846_AUDUSDm_LIMIT_ORDER_PLACED_T5143244643.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260922_153846_AUDUSDm_LIMIT_ORDER_PLACED_T5143244643.png",
+    "extra": {
+      "lots": 0.24,
+      "archetype": "TREND_FVG_PULLBACK"
+    }
+  },
+  {
+    "timestamp": "2026-09-22T15:41:51.516783+00:00",
+    "symbol": "NZDUSDm",
+    "event_type": "LIMIT_ORDER_PLACED",
+    "ticket": 5143258155,
+    "entry": 0.57165,
+    "sl": 0.57225,
+    "tp": 0.57129,
+    "filename": "20260922_154151_NZDUSDm_LIMIT_ORDER_PLACED_T5143258155.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260922_154151_NZDUSDm_LIMIT_ORDER_PLACED_T5143258155.png",
+    "extra": {
+      "lots": 0.2,
+      "archetype": "TREND_FVG_PULLBACK"
+    }
+  },
+  {
+    "timestamp": "2026-09-22T15:42:54.156355+00:00",
+    "symbol": "EURUSDm",
+    "event_type": "LIMIT_ORDER_PLACED",
+    "ticket": 5143263783,
+    "entry": 1.14397,
+    "sl": 1.14447,
+    "tp": 1.14367,
+    "filename": "20260922_154253_EURUSDm_LIMIT_ORDER_PLACED_T5143263783.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260922_154253_EURUSDm_LIMIT_ORDER_PLACED_T5143263783.png",
+    "extra": {
+      "lots": 0.25,
+      "archetype": "TREND_FVG_PULLBACK"
+    }
+  },
+  {
+    "timestamp": "2026-09-22T15:51:58.409891+00:00",
+    "symbol": "AUDUSDm",
+    "event_type": "LIMIT_ORDER_PLACED",
+    "ticket": 5143315760,
+    "entry": 0.71002,
+    "sl": 0.71054,
+    "tp": 0.70971,
+    "filename": "20260922_155158_AUDUSDm_LIMIT_ORDER_PLACED_T5143315760.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260922_155158_AUDUSDm_LIMIT_ORDER_PLACED_T5143315760.png",
+    "extra": {
+      "lots": 0.24,
+      "archetype": "TREND_FVG_PULLBACK"
+    }
+  },
+  {
+    "timestamp": "2026-09-22T16:50:05.599062+00:00",
+    "symbol": "AUDUSDm",
+    "event_type": "TRADE_CLOSED",
+    "ticket": 4437148215,
+    "entry": 0.71002,
+    "sl": null,
+    "tp": null,
+    "filename": "20260922_165005_AUDUSDm_TRADE_CLOSED_T4437148215.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260922_165005_AUDUSDm_TRADE_CLOSED_T4437148215.png",
+    "extra": {
+      "profit_usd": -12.48,
+      "outcome": "LOSS"
+    }
+  },
+  {
+    "timestamp": "2026-09-22T18:08:43.424888+00:00",
+    "symbol": "EURJPYm",
+    "event_type": "TRADE_CLOSED",
+    "ticket": 4435935166,
+    "entry": 180.201,
+    "sl": null,
+    "tp": null,
+    "filename": "20260922_180843_EURJPYm_TRADE_CLOSED_T4435935166.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260922_180843_EURJPYm_TRADE_CLOSED_T4435935166.png",
+    "extra": {
+      "profit_usd": 3.36,
+      "outcome": "WIN"
+    }
+  },
+  {
+    "timestamp": "2026-09-22T18:08:43.428158+00:00",
+    "symbol": "EURUSDm",
+    "event_type": "TRADE_CLOSED",
+    "ticket": 4435810398,
+    "entry": 1.14579,
+    "sl": null,
+    "tp": null,
+    "filename": "20260922_180843_EURUSDm_TRADE_CLOSED_T4435810398.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260922_180843_EURUSDm_TRADE_CLOSED_T4435810398.png",
+    "extra": {
+      "profit_usd": 2.7,
+      "outcome": "WIN"
+    }
+  },
+  {
+    "timestamp": "2026-09-22T18:13:23.923763+00:00",
+    "symbol": "AUDUSDm",
+    "event_type": "TRADE_CLOSED",
+    "ticket": 4437148215,
+    "entry": 0.71002,
+    "sl": null,
+    "tp": null,
+    "filename": "20260922_181323_AUDUSDm_TRADE_CLOSED_T4437148215.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260922_181323_AUDUSDm_TRADE_CLOSED_T4437148215.png",
+    "extra": {
+      "profit_usd": -12.48,
+      "outcome": "LOSS"
+    }
+  },
+  {
+    "timestamp": "2026-09-23T13:48:43.702232+00:00",
+    "symbol": "EURUSDm",
+    "event_type": "LIMIT_ORDER_PLACED",
+    "ticket": 5149186439,
+    "entry": 1.14104,
+    "sl": 1.14164,
+    "tp": 1.14014,
+    "filename": "20260923_134843_EURUSDm_LIMIT_ORDER_PLACED_T5149186439.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260923_134843_EURUSDm_LIMIT_ORDER_PLACED_T5149186439.png",
+    "extra": {
+      "lots": 0.08,
+      "archetype": "TREND_FVG_PULLBACK"
+    }
+  },
+  {
+    "timestamp": "2026-09-23T13:49:46.617608+00:00",
+    "symbol": "EURUSDm",
+    "event_type": "LIMIT_ORDER_PLACED",
+    "ticket": 5149201636,
+    "entry": 1.14104,
+    "sl": 1.14164,
+    "tp": 1.14014,
+    "filename": "20260923_134946_EURUSDm_LIMIT_ORDER_PLACED_T5149201636.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260923_134946_EURUSDm_LIMIT_ORDER_PLACED_T5149201636.png",
+    "extra": {
+      "lots": 0.08,
+      "archetype": "TREND_FVG_PULLBACK"
+    }
+  },
+  {
+    "timestamp": "2026-09-23T14:22:17.605358+00:00",
+    "symbol": "AUDUSDm",
+    "event_type": "LIMIT_ORDER_PLACED",
+    "ticket": 5149616924,
+    "entry": 0.70424,
+    "sl": 0.70477,
+    "tp": 0.70344,
+    "filename": "20260923_142217_AUDUSDm_LIMIT_ORDER_PLACED_T5149616924.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260923_142217_AUDUSDm_LIMIT_ORDER_PLACED_T5149616924.png",
+    "extra": {
+      "lots": 0.09,
+      "archetype": "TREND_FVG_PULLBACK"
+    }
+  },
+  {
+    "timestamp": "2026-09-23T14:54:20.821595+00:00",
+    "symbol": "AUDUSDm",
+    "event_type": "TRADE_CLOSED",
+    "ticket": 4442328013,
+    "entry": 0.70424,
+    "sl": null,
+    "tp": null,
+    "filename": "20260923_145420_AUDUSDm_TRADE_CLOSED_T4442328013.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260923_145420_AUDUSDm_TRADE_CLOSED_T4442328013.png",
+    "extra": {
+      "profit_usd": -4.77,
+      "outcome": "LOSS"
+    }
+  },
+  {
+    "timestamp": "2026-09-23T15:36:38.260774+00:00",
+    "symbol": "AUDUSDm",
+    "event_type": "LIMIT_ORDER_PLACED",
+    "ticket": 5150354424,
+    "entry": 0.70412,
+    "sl": 0.70462,
+    "tp": 0.70337,
+    "filename": "20260923_153638_AUDUSDm_LIMIT_ORDER_PLACED_T5150354424.png",
+    "path": "C:\\Projects\\Other\\ibt-engine\\reports\\trade_snapshots\\20260923_153638_AUDUSDm_LIMIT_ORDER_PLACED_T5150354424.png",
+    "extra": {
+      "lots": 0.09,
+      "archetype": "TREND_FVG_PULLBACK"
+    }
+  }
+]

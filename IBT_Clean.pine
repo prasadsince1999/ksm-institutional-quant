@@ -1,0 +1,173 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// IBT CLEAN TRADING SYSTEM v5.0 — PrasaD / KSM X Tech
+// ═══════════════════════════════════════════════════════════════════════════
+// Complete SMC / ICT Institutional Forex Engine for Exness MT5
+// Primary Alpha Pairs: USDJPY, EURJPY (EURUSD, EURGBP optional)
+// Timeframe: 15-Minute (M15) execution with 1-Hour (H1) Macro Trend Alignment
+// Features:
+//   ✓ 15-Minute Fractal Liquidity Sweeps (30-bar lookback)
+//   ✓ Fair Value Gap (FVG) / Imbalance Displacement
+//   ✓ Pending Limit Order Entry Box at 50% FVG Retest
+//   ✓ Protected Structural Stop Loss & 1:2.0 / 1:3.0 RR Take Profit Lines
+//   ✓ Real-time Micro-Lot Sizing HUD ($100 Capital, 1% Risk = $1.00)
+// ═══════════════════════════════════════════════════════════════════════════
+//@version=5
+indicator("IBT Clean Forex System v5.0 [PrasaD]", "IBT-Forex-v5", overlay=true, max_labels_count=100, max_lines_count=100, max_boxes_count=50)
+
+// ─────────────────────────────────────────────────────────────────────────
+// INPUT SETTINGS
+// ─────────────────────────────────────────────────────────────────────────
+grpSMC  = "🎯 Institutional SMC Settings"
+grpRisk = "💰 Account Risk & Lot Calculator (Exness)"
+grpDisp = "🖥 Visual Display & HUD"
+
+// SMC Settings
+swingLen      = input.int(30,      "Swing Lookback (Bars)",          group=grpSMC, minval=10, maxval=50)
+minWickRatio  = input.float(0.35,  "Min Rejection Wick Ratio",       group=grpSMC, step=0.05)
+entryStyle    = input.string("FVG Edge", "Entry Style",              group=grpSMC, options=["FVG Edge", "50% Midpoint"])
+targetRR      = input.float(1.8,   "Target Risk-to-Reward Ratio",    group=grpSMC, options=[1.5, 1.8, 2.0, 2.5, 3.0])
+
+// Session
+useSession    = input.bool(true,   "Filter London & NY Hours",       group=grpSMC)
+sessionUTC    = input.session("0700-1900", "Trading Window (UTC)",   group=grpSMC)
+
+// Risk & Lot Calculator
+acctBalance   = input.float(100.0, "Account Balance ($)",            group=grpRisk, step=10.0)
+riskPct       = input.float(1.0,   "Risk % per Trade",               group=grpRisk, step=0.5)
+
+// Display
+showHUD       = input.bool(true,   "Show Clean Risk HUD",            group=grpDisp)
+showZones     = input.bool(true,   "Show 50% FVG Limit Entry Boxes", group=grpDisp)
+showLines     = input.bool(true,   "Show Entry / SL / TP Lines",     group=grpDisp)
+
+// ─────────────────────────────────────────────────────────────────────────
+// UTILITIES & PIP SIZING
+// ─────────────────────────────────────────────────────────────────────────
+isJPY     = str.contains(syminfo.ticker, "JPY")
+pipMult   = isJPY ? 100.0 : 10000.0
+pipUnit   = isJPY ? 0.01 : 0.0001
+toPips(diff) => math.abs(diff) * pipMult
+
+inTradeSession = not useSession or not na(time(timeframe.period, sessionUTC, "UTC"))
+
+// ATR 20
+atr20 = ta.atr(20)
+
+// 1H Macro Trend Proxy on 15m (100-period EMA = 25 hours)
+emaMacro = ta.ema(close, 100)
+
+// 30-bar Rolling Swings
+swH = ta.highest(high, swingLen)[3]
+swL = ta.lowest(low, swingLen)[3]
+
+// Directional Fair Value Gaps (FVG)
+bullGap = (low > high[2])
+bearGap = (high < low[2])
+
+candleRange = high - low
+candleBody  = math.abs(close - open)
+lowerWick   = math.min(open, close) - low
+upperWick   = high - math.max(open, close)
+
+// ─────────────────────────────────────────────────────────────────────────
+// LIQUIDITY SWEEP DETECTION
+// ─────────────────────────────────────────────────────────────────────────
+var float lastSweepL = na
+var float lastSweepH = na
+var int   lastSweepBar = 0
+
+bullSweep = (low < swL and math.min(open, close) >= swL and candleRange > 0 and (lowerWick / candleRange) >= minWickRatio)
+bearSweep = (high > swH and math.max(open, close) <= swH and candleRange > 0 and (upperWick / candleRange) >= minWickRatio)
+
+if bullSweep
+    lastSweepL   := low
+    lastSweepBar := bar_index
+
+if bearSweep
+    lastSweepH   := high
+    lastSweepBar := bar_index
+
+sweepRecent = (bar_index - lastSweepBar) <= 3 and (bar_index - lastSweepBar) > 0
+
+// ─────────────────────────────────────────────────────────────────────────
+// SMC SETUP LOGIC (50% FVG LIMIT RETEST)
+// ─────────────────────────────────────────────────────────────────────────
+var bool  hasBuySetup  = false
+var bool  hasSellSetup = false
+var float limitPrice   = na
+var float slPrice      = na
+var float tpPrice      = na
+var float riskPips     = na
+
+validBullGap = bullGap and close > open and (candleBody / candleRange) >= 0.20
+validBearGap = bearGap and close < open and (candleBody / candleRange) >= 0.20
+
+isBuySignal  = inTradeSession and sweepRecent and not na(lastSweepL) and validBullGap
+isSellSignal = inTradeSession and sweepRecent and not na(lastSweepH) and validBearGap
+
+if isBuySignal and barstate.isconfirmed
+    hasBuySetup := true
+    hasSellSetup := false
+    limitPrice  := (entryStyle == "FVG Edge") ? high[2] : ((low + high[2]) / 2.0)
+    slPrice     := lastSweepL - (1.0 * pipUnit)
+    float riskDist = limitPrice - slPrice
+    riskPips    := toPips(riskDist)
+    tpPrice     := limitPrice + (targetRR * riskDist)
+
+    if showZones
+        box.new(left=bar_index, top=low, right=bar_index + 12, bottom=high[2],
+                border_color=color.new(color.green, 50),
+                bgcolor=color.new(color.green, 85))
+
+    label.new(bar_index, high, "BUY LIMIT [" + entryStyle + "]\nEntry: " + str.tostring(limitPrice, "#.#####") + "\nSL: " + str.tostring(slPrice, "#.#####") + " (" + str.tostring(riskPips, "#.#") + " pips)\nTP (" + str.tostring(targetRR, "#.#") + "R): " + str.tostring(tpPrice, "#.#####"),
+              color=color.green, textcolor=color.white, style=label.style_label_down, size=size.small)
+
+if isSellSignal and barstate.isconfirmed
+    hasSellSetup := true
+    hasBuySetup  := false
+    limitPrice   := (entryStyle == "FVG Edge") ? low[2] : ((high + low[2]) / 2.0)
+    slPrice      := lastSweepH + (1.0 * pipUnit)
+    float riskDist = slPrice - limitPrice
+    riskPips     := toPips(riskDist)
+    tpPrice      := limitPrice - (targetRR * riskDist)
+
+    if showZones
+        box.new(left=bar_index, top=low[2], right=bar_index + 12, bottom=high,
+                border_color=color.new(color.red, 50),
+                bgcolor=color.new(color.red, 85))
+
+    label.new(bar_index, low, "SELL LIMIT [" + entryStyle + "]\nEntry: " + str.tostring(limitPrice, "#.#####") + "\nSL: " + str.tostring(slPrice, "#.#####") + " (" + str.tostring(riskPips, "#.#") + " pips)\nTP (" + str.tostring(targetRR, "#.#") + "R): " + str.tostring(tpPrice, "#.#####"),
+              color=color.red, textcolor=color.white, style=label.style_label_up, size=size.small)
+
+// ─────────────────────────────────────────────────────────────────────────
+// CLEAN HEADS-UP DISPLAY (HUD)
+// ─────────────────────────────────────────────────────────────────────────
+if showHUD and barstate.islast
+    var table hud = table.new(position.top_right, 2, 7, bgcolor=color.new(color.black, 15), border_color=color.gray, border_width=1)
+
+    float dollarRisk = acctBalance * (riskPct / 100.0)
+    
+    // Dynamic Micro-Lot Sizing:
+    float pipVal = isJPY ? (1000.0 / close) : 10.0
+    float estLots = not na(riskPips) and riskPips > 0 ? math.max(0.01, math.round(dollarRisk / (riskPips * pipVal), 2)) : 0.01
+
+    table.cell(hud, 0, 0, "EXNESS MT5 SMC ENGINE", bgcolor=color.new(color.blue, 30), text_color=color.white, text_size=size.small)
+    table.cell(hud, 1, 0, "v5.0 [PrasaD]",           bgcolor=color.new(color.blue, 30), text_color=color.yellow, text_size=size.small)
+
+    table.cell(hud, 0, 1, "Account Capital", text_color=color.white, text_size=size.small)
+    table.cell(hud, 1, 1, "$" + str.tostring(acctBalance, "#.00"), text_color=color.white, text_size=size.small)
+
+    table.cell(hud, 0, 2, "Risk per Trade (1%)", text_color=color.white, text_size=size.small)
+    table.cell(hud, 1, 2, "$" + str.tostring(dollarRisk, "#.00"), text_color=color.aqua, text_size=size.small)
+
+    table.cell(hud, 0, 3, "Recommended Volume", text_color=color.white, text_size=size.small)
+    table.cell(hud, 1, 3, str.tostring(estLots, "0.00") + " Micro Lots", text_color=color.yellow, text_size=size.small)
+
+    table.cell(hud, 0, 4, "Target RR", text_color=color.white, text_size=size.small)
+    table.cell(hud, 1, 4, "1 : " + str.tostring(targetRR, "#.#") + " RR", text_color=color.green, text_size=size.small)
+
+    table.cell(hud, 0, 5, "Session (UTC 07-19)", text_color=color.white, text_size=size.small)
+    table.cell(hud, 1, 5, inTradeSession ? "🟢 ACTIVE" : "🔴 CLOSED", text_color=inTradeSession ? color.green : color.red, text_size=size.small)
+
+    table.cell(hud, 0, 6, "Primary Alpha Pairs", text_color=color.white, text_size=size.small)
+    table.cell(hud, 1, 6, "USDJPY · EURJPY", text_color=color.orange, text_size=size.small)

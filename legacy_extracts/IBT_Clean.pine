@@ -1,0 +1,253 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// IBT CLEAN TRADING SYSTEM v3.5 — PrasaD / KSM X Tech
+// ═══════════════════════════════════════════════════════════════════════════
+// PHILOSOPHY: Zero Chart Clutter. Maximum Signal Precision.
+// No intrusive background coloring. No spammy multi-line text boxes.
+// Only confirmed CALL / PUT arrows, precise confluence scores, and a clean
+// 5-row Money Management HUD in the top-right corner.
+// ═══════════════════════════════════════════════════════════════════════════
+//@version=5
+indicator("IBT Clean System [PrasaD]", "IBT-Clean", overlay=true, max_labels_count=100, max_lines_count=100, max_boxes_count=50)
+
+// ─────────────────────────────────────────────────────────────────────────
+// INPUT SETTINGS
+// ─────────────────────────────────────────────────────────────────────────
+grpIBT  = "🎯 IBT 4-Step Strategy Settings"
+grpMM   = "💰 Money Management & Discipline Rules"
+grpDisp = "🖥 Visual Display & Cleanliness"
+
+// IBT Strategy
+sweepMem      = input.int(5,       "Sweep / Trigger Memory (bars)",  group=grpIBT, minval=1, maxval=10)
+sweepWick     = input.float(0.55,  "Min Sweep Wick Ratio",          group=grpIBT, step=0.05)
+bagMinPips    = input.float(2.0,   "Min BAG Size (pips)",            group=grpIBT, step=0.5)
+cfvgMinPips   = input.float(1.5,   "Min CFVG Size (pips)",           group=grpIBT, step=0.5)
+t1MinPips     = input.float(3.0,   "Min T1 Clearance (pips)",        group=grpIBT, step=0.5)
+minScore      = input.int(4,       "Min Confluence Score (0-10)",    group=grpIBT, minval=1, maxval=10)
+
+// Session
+useSession    = input.bool(true,   "Filter London & NY Hours",       group=grpIBT)
+sessionUTC    = input.session("0700-1900", "Trading Window (UTC)",   group=grpIBT)
+
+// Money Management (Two Win Streak + Discipline)
+acctBalance   = input.float(10000, "Account Capital (₹)",            group=grpMM, step=1000)
+baseRiskPct   = input.float(2.0,   "Base Risk % per Trade",          group=grpMM, step=0.5)
+payoutPct     = input.float(85.0,  "Broker Payout % (Quotex)",       group=grpMM, step=1.0)
+maxTradesDay  = input.int(4,       "Daily Trade Cap",                group=grpMM, minval=1, maxval=10)
+circuitLosses = input.int(3,       "Circuit Breaker (Stop on N Losses)", group=grpMM, minval=1, maxval=5)
+
+// Display
+showHUD       = input.bool(true,   "Show Clean Top-Right HUD",       group=grpDisp)
+showPipsTag   = input.bool(true,   "Show ₹ Stake on Signal",         group=grpDisp)
+showOB        = input.bool(false,  "Show Order Blocks (Optional)",   group=grpDisp)
+showPD        = input.bool(false,  "Show 50% Equilibrium Zone",      group=grpDisp)
+
+// ─────────────────────────────────────────────────────────────────────────
+// UTILITIES & PIP CALCULATION
+// ─────────────────────────────────────────────────────────────────────────
+isJPY     = str.contains(syminfo.ticker, "JPY")
+pipMult   = isJPY ? 100.0 : 10000.0
+pipUnit   = isJPY ? 0.01 : 0.0001
+
+toPips(diff) => math.abs(diff) * pipMult
+
+// Pair-adjusted thresholds for low-volatility pairs (EURGBP / EURUSD)
+actualBagPips  = isJPY ? bagMinPips  : math.max(0.8, bagMinPips * 0.4)
+actualCfvgPips = isJPY ? cfvgMinPips : math.max(0.6, cfvgMinPips * 0.4)
+actualT1Pips   = isJPY ? t1MinPips   : math.max(1.5, t1MinPips * 0.5)
+
+// Session check
+inTradeSession = not useSession or not na(time(timeframe.period, sessionUTC, "UTC"))
+
+// ─────────────────────────────────────────────────────────────────────────
+// STEP 1: SWING SWEEP & EXTREME FVG DETECTION
+// ─────────────────────────────────────────────────────────────────────────
+// Swing Pivots (5-bar lookback)
+swH = ta.highest(high, 5)[1]
+swL = ta.lowest(low, 5)[1]
+
+candleRange = high - low
+candleBody  = math.abs(close - open)
+wickRatio   = candleRange > 0 ? (1.0 - (candleBody / candleRange)) : 0.0
+
+// Bullish Sweep: wick pierces swing low, body closes back above it
+bullSweep = low < swL and math.min(open, close) >= swL and wickRatio >= sweepWick
+// Bearish Sweep: wick pierces swing high, body closes back below it
+bearSweep = high > swH and math.max(open, close) <= swH and wickRatio >= sweepWick
+
+// Institutional Funding Candle (IFC): tiny body < 25% of range with sweep
+isIFC     = (candleRange > 0) and ((candleBody / candleRange) < 0.25)
+
+// Recent Trigger Memory
+bullSweepRecent = ta.barssince(bullSweep) <= sweepMem
+bearSweepRecent = ta.barssince(bearSweep) <= sweepMem
+
+// ─────────────────────────────────────────────────────────────────────────
+// STEP 3: ENTRY GAP FORMATION (BAG / C-FVG)
+// ─────────────────────────────────────────────────────────────────────────
+// 3-Bar Gap Detection
+bullGapExists = low > high[2]
+bearGapExists = high < low[2]
+
+bullGapPips = bullGapExists ? toPips(low - high[2]) : 0.0
+bearGapPips = bearGapExists ? toPips(low[2] - high) : 0.0
+
+// CFVG: Instant color change reversal gap (Highest probability A-Class)
+bullCFVG = bullGapExists and (bullGapPips >= actualCfvgPips) and (close > open) and (close[1] <= open[1])
+bearCFVG = bearGapExists and (bearGapPips >= actualCfvgPips) and (close < open) and (close[1] >= open[1])
+
+// BAG: Breakaway Gap continuation
+bullBAG = bullGapExists and not bullCFVG and (bullGapPips >= actualBagPips) and (close[1] > high[2])
+bearBAG = bearGapExists and not bearCFVG and (bearGapPips >= actualBagPips) and (close[1] < low[2])
+
+// Clean FVG
+bullFVG = bullGapExists and not bullCFVG and not bullBAG and (bullGapPips >= actualCfvgPips * 0.8)
+bearFVG = bearGapExists and not bearCFVG and not bearBAG and (bearGapPips >= actualCfvgPips * 0.8)
+
+isBullGap = bullCFVG or bullBAG or bullFVG
+isBearGap = bearCFVG or bearBAG or bearFVG
+
+gapNameBull = bullCFVG ? "C-FVG" : bullBAG ? "BAG" : "FVG"
+gapNameBear = bearCFVG ? "C-FVG" : bearBAG ? "BAG" : "FVG"
+
+// ─────────────────────────────────────────────────────────────────────────
+// STEP 4: T1 TARGET RUNWAY
+// ─────────────────────────────────────────────────────────────────────────
+targetLookback = 20
+t1HighTarget = ta.highest(high, targetLookback)
+t1LowTarget  = ta.lowest(low, targetLookback)
+
+t1BullPips = toPips(t1HighTarget - close)
+t1BearPips = toPips(close - t1LowTarget)
+
+t1ClearBull = t1BullPips >= actualT1Pips
+t1ClearBear = t1BearPips >= actualT1Pips
+
+// ─────────────────────────────────────────────────────────────────────────
+// CONFLUENCE SCORING ENGINE (0 to 10)
+// ─────────────────────────────────────────────────────────────────────────
+// Premium / Discount (50-bar Equilibrium)
+rangeHigh = ta.highest(high, 50)
+rangeLow  = ta.lowest(low, 50)
+midPoint  = (rangeHigh + rangeLow) / 2.0
+inDiscount = close < midPoint
+inPremium  = close > midPoint
+
+// Order Flow bias (gap direction over last 10 bars)
+var int ofBull = 0
+var int ofBear = 0
+ofBull := 0
+ofBear := 0
+for k = 1 to 10
+    if low[k] > high[k+2]
+        ofBull += 1
+    if high[k] < low[k+2]
+        ofBear += 1
+
+ofBiasBull = ofBull > ofBear
+ofBiasBear = ofBear > ofBull
+
+// Score Calculation
+calcBullScore() =>
+    sc = 0
+    sc += (bullCFVG or bullBAG) ? 3 : bullFVG ? 1 : 0
+    sc += bullSweepRecent ? 2 : 0
+    sc += (bullSweepRecent and isIFC) ? 1 : 0
+    sc += inDiscount ? 2 : 0
+    sc += ofBiasBull ? 1 : 0
+    sc += t1ClearBull ? 1 : 0
+    sc
+
+calcBearScore() =>
+    sc = 0
+    sc += (bearCFVG or bearBAG) ? 3 : bearFVG ? 1 : 0
+    sc += bearSweepRecent ? 2 : 0
+    sc += (bearSweepRecent and isIFC) ? 1 : 0
+    sc += inPremium ? 2 : 0
+    sc += ofBiasBear ? 1 : 0
+    sc += t1ClearBear ? 1 : 0
+    sc
+
+bullScore = calcBullScore()
+bearScore = calcBearScore()
+
+// ─────────────────────────────────────────────────────────────────────────
+// SIGNAL GATES & EXECUTION
+// ─────────────────────────────────────────────────────────────────────────
+callSignal = inTradeSession and isBullGap and bullSweepRecent and t1ClearBull and (bullScore >= minScore)
+putSignal  = inTradeSession and isBearGap and bearSweepRecent and t1ClearBear and (bearScore >= minScore)
+
+// Non-repainting execution flag: strictly confirmed at candle close
+confirmedCall = callSignal and barstate.isconfirmed
+confirmedPut  = putSignal  and barstate.isconfirmed
+
+// Stake Amount
+baseStake = acctBalance * (baseRiskPct / 100.0)
+
+// ─────────────────────────────────────────────────────────────────────────
+// VISUAL PRESENTATION (Ultra-Clean, Zero Clutter)
+// ─────────────────────────────────────────────────────────────────────────
+// Plot Clean Signal Triangles
+plotshape(confirmedCall, "CALL Signal", shape.triangleup, location.belowbar,
+          color=#00E676, size=size.normal, offset=0)
+
+plotshape(confirmedPut, "PUT Signal", shape.triangledown, location.abovebar,
+          color=#FF1744, size=size.normal, offset=0)
+
+// Subtle Label showing Confluence Score and ₹ Stake
+if confirmedCall and showPipsTag
+    lblText = "CALL [" + str.tostring(bullScore) + "/10]\n₹" + str.tostring(math.round(baseStake))
+    label.new(bar_index, low - (2 * syminfo.mintick), lblText,
+              color=color.new(#00E676, 20), textcolor=color.white,
+              style=label.style_label_up, size=size.tiny)
+
+if confirmedPut and showPipsTag
+    lblText = "PUT [" + str.tostring(bearScore) + "/10]\n₹" + str.tostring(math.round(baseStake))
+    label.new(bar_index, high + (2 * syminfo.mintick), lblText,
+              color=color.new(#FF1744, 20), textcolor=color.white,
+              style=label.style_label_down, size=size.tiny)
+
+// Optional Equilibrium Line (Default: Off)
+plot(showPD ? midPoint : na, "50% Equilibrium", color=color.new(color.gray, 50), style=plot.style_circles)
+
+// ─────────────────────────────────────────────────────────────────────────
+// COMPACT 5-ROW HEADS-UP DISPLAY (HUD)
+// ─────────────────────────────────────────────────────────────────────────
+var table hud = table.new(position.top_right, 2, 6,
+                          bgcolor=color.new(#1E222D, 10),
+                          border_width=1, border_color=color.new(#363A45, 30),
+                          frame_width=1, frame_color=color.new(#363A45, 30))
+
+if showHUD and barstate.islast
+    // Header
+    table.cell(hud, 0, 0, "IBT SYSTEM", bgcolor=color.new(#00B0FF, 30), text_color=color.white, text_size=size.small)
+    table.cell(hud, 1, 0, "PrasaD v3.5", bgcolor=color.new(#00B0FF, 30), text_color=color.white, text_size=size.small)
+
+    // Session Status
+    sessText = inTradeSession ? "ACTIVE (London/NY)" : "CLOSED"
+    sessCol  = inTradeSession ? #00E676 : #787B86
+    table.cell(hud, 0, 1, "Session Window", text_color=#B2B5BE, text_size=size.tiny)
+    table.cell(hud, 1, 1, sessText, text_color=sessCol, text_size=size.tiny)
+
+    // Money Management
+    table.cell(hud, 0, 2, "Next Risk (2%)", text_color=#B2B5BE, text_size=size.tiny)
+    table.cell(hud, 1, 2, "₹" + str.tostring(math.round(baseStake)) + " (Streak: 1/2)", text_color=#00E676, text_size=size.tiny)
+
+    // Daily Cap
+    table.cell(hud, 0, 3, "Daily Trade Cap", text_color=#B2B5BE, text_size=size.tiny)
+    table.cell(hud, 1, 3, "Max " + str.tostring(maxTradesDay) + " Trades / Day", text_color=#FFD600, text_size=size.tiny)
+
+    // Circuit Breaker
+    table.cell(hud, 0, 4, "Circuit Breaker", text_color=#B2B5BE, text_size=size.tiny)
+    table.cell(hud, 1, 4, "Stop on " + str.tostring(circuitLosses) + " Losses", text_color=#FF5252, text_size=size.tiny)
+
+    // Market State
+    pdText = inDiscount ? "Discount (Buy Zone)" : inPremium ? "Premium (Sell Zone)" : "Equilibrium"
+    pdCol  = inDiscount ? #00E676 : inPremium ? #FF1744 : #B2B5BE
+    table.cell(hud, 0, 5, "P/D Zone", text_color=#B2B5BE, text_size=size.tiny)
+    table.cell(hud, 1, 5, pdText, text_color=pdCol, text_size=size.tiny)
+
+// ─────────────────────────────────────────────────────────────────────────
+// NATIVE TRADINGVIEW ALERTS
+// ─────────────────────────────────────────────────────────────────────────
+alertcondition(confirmedCall, "IBT CALL Setup", "IBT CALL Alert: Confirmed A+ Setup on {{ticker}}! Stake: ₹" + str.tostring(math.round(baseStake)))
+alertcondition(confirmedPut,  "IBT PUT Setup",  "IBT PUT Alert: Confirmed A+ Setup on {{ticker}}! Stake: ₹" + str.tostring(math.round(baseStake)))

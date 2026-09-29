@@ -1,0 +1,50 @@
+# Environment & Secrets
+.env
+*.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.token
+
+# Python & Caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Large Datasets, Ticks, and Historical Archives (>50MB)
+/data/
+*.zip
+*.parquet
+*.csv.gz
+*.tar.gz
+data_10pairs.zip
+TEN_YEAR_DECADE_AUDIT.csv
+
+# Large Machine Learning Model Weights (>100MB)
+exness/models/
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.onnx
+
+# Internal Conversation Archives & Internal Logs
+CONVERSATION_DATA_ARCHIVE.json
+CONVERSATION_MASTER_ARCHIVE.md
+transcripts/
+scratch/
+.system_generated/
+*.log
+
+# Operating System & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
