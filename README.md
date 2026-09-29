@@ -1,4 +1,4 @@
-# 🏛️ IBT-Engine: Autonomous Institutional Smart Money Concepts (SMC) Quantitative Trading System
+# 🏛️ KSM-Institutional-Quant: Autonomous Smart Money Concepts (SMC) Quantitative Trading System
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![MetaTrader 5](https://img.shields.io/badge/Broker-MetaTrader%205%20(Exness)-green.svg)](https://www.metatrader5.com/)
@@ -34,7 +34,7 @@ The system programmatically deconstructs discretionary **Smart Money Concepts (S
 
 Most retail trading bots fail because they optimize over-fitted indicators on tiny sample sizes, run toxic martingale grids, or chase sub-1:1 risk-to-reward ratios where broker spread friction guarantees long-term ruin.
 
-**IBT-Engine** enforces four non-negotiable institutional invariants:
+**KSM-Institutional-Quant** enforces four non-negotiable institutional invariants:
 1. **Mathematical Expectancy First**: Strictly targets **1:1.5 to 1:2.0 Risk-to-Reward**, ensuring that a 45% win rate generates substantial positive mathematical expectancy ($E > +0.09R$ per trade).
 2. **Symmetrical Fixed Fractional Risk**: Flat 1.0% equity allocation per trade. Winning trades never escalate risk, protecting capital against negative asymmetry.
 3. **Session Liquidity Alignment**: Entries occur exclusively following sweeps of Asian Session Highs/Lows (ASH/ASL) or Previous Day Highs/Lows (PDH/PDL) during London Open (07:00–11:30 UTC) and New York Open (12:00–16:30 UTC) killzones.
@@ -163,7 +163,7 @@ The engine features an asynchronous Telegram notification pipeline in [`exness/t
 ## 📂 Repository Structure & File Catalog
 
 ```
-ibt-engine/
+ksm-institutional-quant/
 ├── exness/                                 # Production MT5 Live Execution Engine
 │   ├── asset_profiles.json                 # Per-pair calibrated parameters (1.5R baseline)
 │   ├── chart_snapshot.py                   # Dark-mode chart image renderer
@@ -229,8 +229,8 @@ The repository includes a comprehensive 6-volume quantitative research series:
 
 ### Step 1: Clone the Repository
 ```bash
-git clone https://github.com/prasadsince1999/ibt-engine.git
-cd ibt-engine
+git clone https://github.com/prasadsince1999/ksm-institutional-quant.git
+cd ksm-institutional-quant
 ```
 
 ### Step 2: Create a Virtual Environment & Install Dependencies
