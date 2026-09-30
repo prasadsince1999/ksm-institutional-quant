@@ -1,7 +1,7 @@
 {
     "GBPJPY": {
         "pair": "GBPJPY",
-        "target_rr": 1.5,
+        "target_rr": 1.0,
         "use_h1_filter": false,
         "killzones_only": true,
         "session_sweep_only": true,
@@ -10,7 +10,7 @@
     },
     "USDJPY": {
         "pair": "USDJPY",
-        "target_rr": 1.5,
+        "target_rr": 1.0,
         "use_h1_filter": true,
         "killzones_only": true,
         "session_sweep_only": false,
@@ -19,7 +19,7 @@
     },
     "EURUSD": {
         "pair": "EURUSD",
-        "target_rr": 1.5,
+        "target_rr": 1.0,
         "use_h1_filter": true,
         "killzones_only": true,
         "session_sweep_only": true,
@@ -28,7 +28,7 @@
     },
     "XAUUSD": {
         "pair": "XAUUSD",
-        "target_rr": 1.5,
+        "target_rr": 1.0,
         "use_h1_filter": true,
         "killzones_only": false,
         "session_sweep_only": false,
@@ -40,7 +40,7 @@
     },
     "EURJPY": {
         "pair": "EURJPY",
-        "target_rr": 1.5,
+        "target_rr": 1.0,
         "use_h1_filter": false,
         "killzones_only": true,
         "session_sweep_only": true,
@@ -49,7 +49,7 @@
     },
     "NZDUSD": {
         "pair": "NZDUSD",
-        "target_rr": 1.5,
+        "target_rr": 1.0,
         "use_h1_filter": false,
         "killzones_only": true,
         "session_sweep_only": false,
@@ -61,7 +61,7 @@
     },
     "AUDUSD": {
         "pair": "AUDUSD",
-        "target_rr": 1.5,
+        "target_rr": 1.0,
         "use_h1_filter": true,
         "killzones_only": true,
         "session_sweep_only": false,
@@ -70,7 +70,7 @@
     },
     "GBPUSD": {
         "pair": "GBPUSD",
-        "target_rr": 1.5,
+        "target_rr": 1.0,
         "use_h1_filter": true,
         "killzones_only": true,
         "session_sweep_only": false,
@@ -79,7 +79,7 @@
     },
     "USDCAD": {
         "pair": "USDCAD",
-        "target_rr": 1.5,
+        "target_rr": 1.0,
         "use_h1_filter": false,
         "killzones_only": false,
         "session_sweep_only": false,
@@ -88,7 +88,7 @@
     },
     "USDCHF": {
         "pair": "USDCHF",
-        "target_rr": 1.5,
+        "target_rr": 1.0,
         "use_h1_filter": false,
         "killzones_only": true,
         "session_sweep_only": true,

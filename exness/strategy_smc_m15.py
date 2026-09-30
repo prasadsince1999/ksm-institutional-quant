@@ -215,8 +215,9 @@ def analyze_m15_setup(df_m15: pd.DataFrame, pair: str, params: dict = None) -> l
         c_r = c_h - c_l
         c_b = abs(c_c - c_o)
         atr = atr20[i]
+        min_atr_thresh = (50.0 * pip) if is_gold else (5.0 * pip)
 
-        if atr < 1.0 * pip or c_r < 0.5 * pip:
+        if atr < min_atr_thresh or c_r < 0.5 * pip:
             continue
 
         # ── Step 1: Liquidity Sweep in last 3 bars [i-3 to i] ──
@@ -385,12 +386,10 @@ def analyze_m15_setup(df_m15: pd.DataFrame, pair: str, params: dict = None) -> l
 
         risk_pips = risk_dist / pip
 
-        # Institutional Breathing Room Floor: Never allow micro stop-losses that get stopped out by spread
-        min_breathing_pips = max(50.0, (atr / pip) * 1.0) if is_gold else (8.0 if "JPY" in pair else 5.0)
-        if risk_pips < min_breathing_pips:
-            risk_dist = min_breathing_pips * pip
-            sl_price = limit_entry - risk_dist if sig == "BUY_LIMIT" else limit_entry + risk_dist
-            risk_pips = min_breathing_pips
+        # Stop-to-Spread Ratio Floor: Skip setups where risk is under 8x base spread
+        est_spread_pips = 2.0 if is_gold else (1.0 if "JPY" in pair else 0.8)
+        if risk_pips < 8.0 * est_spread_pips:
+            continue
 
         if risk_pips > max_risk:
             continue

@@ -302,6 +302,11 @@ class ExnessTrader:
         current_spread_pips = (cur_ask - cur_bid) / pip if pip > 0 else 0.0
         atr = setup.get("atr_pips", 10.0) * pip
 
+        # Guard: Stop-to-Spread Ratio Floor (Skip setups where risk < 8x live spread)
+        if current_spread_pips and risk_pips < 8.0 * current_spread_pips:
+            print(f"🛑 [Execution Guard] Stop size too tight relative to live spread ({risk_pips:.1f}p < 8x {current_spread_pips:.1f}p spread). Skipping.")
+            return False
+
         inv = self.sentinel.validate_pre_trade_invariants(
             symbol=symbol,
             order_type=order_type_str,
@@ -539,12 +544,52 @@ class ExnessTrader:
 
     def manage_active_positions(self):
         """
-        Audits active positions exclusively via Autonomous In-Flight Co-Pilot
-        (Break-Even at 1.0R, Partial TP at 1.8R, Trailing Stop, and Execution Snapshots).
-        Prevents conflicting threshold thrashing between trader loop and copilot.
+        Audits active positions exclusively via Autonomous In-Flight Co-Pilot.
+        Includes a native deterministic fail-safe in case the copilot encounters an error.
         """
         if hasattr(self, 'inflight_copilot') and self.inflight_copilot:
-            self.inflight_copilot.audit_active_positions(magic_number=MAGIC_NUMBER)
+            try:
+                self.inflight_copilot.audit_active_positions(magic_number=MAGIC_NUMBER)
+                return
+            except Exception as e:
+                print(f"⚠️ [InFlight Co-Pilot] Audit failed: {e}. Executing native fail-safe break-even.")
+
+        # Fail-safe break-even fallback
+        self.native_failsafe_breakeven()
+
+    def native_failsafe_breakeven(self):
+        """Deterministic fail-safe break-even check (+0.7R -> open + 0.3 pips)."""
+        positions = mt5.positions_get()
+        if not positions:
+            return
+        for pos in positions:
+            if pos.magic != MAGIC_NUMBER:
+                continue
+            symbol = pos.symbol
+            pip = pip_size(symbol)
+            is_buy = (pos.type == mt5.ORDER_TYPE_BUY)
+            open_p = pos.price_open
+            cur_p = pos.price_current
+            sl = pos.sl
+            tp = pos.tp
+            risk_dist = abs(open_p - sl)
+            if risk_dist <= 0:
+                continue
+            current_gain = (cur_p - open_p) if is_buy else (open_p - cur_p)
+            current_r = current_gain / risk_dist
+            be_level = open_p + (0.3 * pip) if is_buy else open_p - (0.3 * pip)
+            sl_needs_update = (sl < open_p) if is_buy else (sl > open_p)
+            if current_r >= 0.7 and sl_needs_update:
+                req = {
+                    "action": mt5.TRADE_ACTION_SLTP,
+                    "position": pos.ticket,
+                    "symbol": symbol,
+                    "sl": round(be_level, 3 if "JPY" in symbol else 5),
+                    "tp": tp,
+                }
+                res = mt5.order_send(req)
+                if res and res.retcode == mt5.TRADE_RETCODE_DONE:
+                    print(f"🛡️ [Fail-Safe Break-Even] Position #{pos.ticket} secured at {be_level}")
 
     def cancel_all_pending_orders(self, reason: str = ""):
         """Cancels all active pending limit orders placed by this EA."""

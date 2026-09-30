@@ -38,9 +38,20 @@ FILL_WINDOW = 8                                            # bars, same as live 
 MAX_HOLD = 48                                              # bars (4h on M5) then close at market
 MAX_CONCURRENT, MAX_DAILY = 3, 5
 
+ERA_SPREADS = True      # --flat-spreads turns this off
+BE_AT = None            # --be-at 1.0 mirrors the live copilot's break-even shield
+MIN_STOP_SPREAD_RATIO = None # --min-stop-spread-ratio 8.0 skips trades where stop < 8x spread
+MIN_ATR_PIPS = None          # --min-atr-pips 8.0 skips low-volatility regimes
 
-def spread_pips(pair, hour):
+
+def era_mult(year):
+    if not ERA_SPREADS: return 1.0
+    return 2.5 if year < 2008 else 1.6 if year < 2012 else 1.25 if year < 2016 else 1.0
+
+
+def spread_pips(pair, hour, year=2025):
     base = BASE_SPREAD["XAU"] if "XAU" in pair else BASE_SPREAD["JPY"] if "JPY" in pair else BASE_SPREAD["DEFAULT"]
+    base = base * era_mult(year)
     if 21 <= hour < 22: return base * 6
     if 0 <= hour < 6:   return base * 2
     if 7 <= hour <= 16: return base
@@ -83,8 +94,12 @@ def simulate(df, pair, setups, rr):
         entry, sl = s["limit_entry"], s["stop_loss"]
         risk = abs(entry - sl)
         if risk <= 0: continue
+        sp = spread_pips(pair, hours[i], df.index[i].year) * pip
+        if MIN_STOP_SPREAD_RATIO and (risk / sp) < MIN_STOP_SPREAD_RATIO:
+            continue
+        if MIN_ATR_PIPS and s.get("atr_pips", 0.0) < MIN_ATR_PIPS:
+            continue
         tp = entry + rr * risk if buy else entry - rr * risk
-        sp = spread_pips(pair, hours[i]) * pip
         pen = PENETRATION_PIPS * pip
         fill = None
         for j in range(i + 1, min(i + 1 + FILL_WINDOW, n)):
@@ -96,21 +111,31 @@ def simulate(df, pair, setups, rr):
                 if hi[j] >= entry + pen: fill = j; break
         if fill is None: continue
         r = None; exit_j = None
+        cur_sl = sl; be_done = False
         for j in range(fill, min(fill + MAX_HOLD, n)):
             if buy:
-                stop_hit = lo[j] <= sl
+                stop_hit = lo[j] <= cur_sl
                 tp_hit = hi[j] >= tp
             else:
-                stop_hit = hi[j] >= sl - sp        # ask-based stop for shorts
+                stop_hit = hi[j] >= cur_sl - sp    # ask-based stop for shorts
                 tp_hit = lo[j] <= tp - sp
             if stop_hit:                            # SL first if both touched (conservative)
-                r = -1.0 - (SLIP_PIPS_R(pip, risk)); exit_j = j; break
+                if be_done:
+                    r = (0.3 * pip - 0.5 * SLIP_PIPS * pip) / risk          # stopped at break-even (+0.3 pip lock, half slip)
+                else:
+                    r = -1.0 - (SLIP_PIPS_R(pip, risk))
+                exit_j = j; break
             if tp_hit:
-                r = rr - (sp / risk) if buy else rr - (sp / risk); exit_j = j; break
+                r = rr; exit_j = j; break           # spread already paid via bid/ask trigger levels
+            if BE_AT and not be_done:               # arm break-even for the NEXT bar (no same-bar peeking)
+                reached = (hi[j] >= entry + BE_AT * risk) if buy else (lo[j] <= entry - BE_AT * risk - sp)
+                if reached:
+                    be_done = True
+                    cur_sl = entry + 0.3 * pip if buy else entry - 0.3 * pip
         if r is None:
             exit_j = min(fill + MAX_HOLD, n) - 1
-            move = (cl[exit_j] - entry) if buy else (entry - cl[exit_j])
-            r = (move - sp) / risk
+            move = (cl[exit_j] - entry) if buy else (entry - (cl[exit_j] + sp))   # shorts buy back at ask
+            r = move / risk
         trades.append({"pair": pair, "t_entry": df.index[fill], "t_exit": df.index[exit_j],
                        "r": float(r), "arch": s["archetype"]})
     return trades
@@ -162,12 +187,13 @@ def eval_combo(data, pairs, combo, lo_dt, hi_dt):
     return portfolio(allt)[0]
 
 
-def walkforward(data, pairs, train_years=3, min_trades=150):
+def walkforward(data, pairs, train_years=3, min_trades=150, start_year=None):
     years = sorted({y for df in data.values() for y in df.index.year.unique()})
+    test_years = [y for y in years[train_years:] if (start_year is None or y >= start_year)]
     print(f"\nWALK-FORWARD (train {train_years}y -> test next 1y, params chosen on TRAIN only, costs on)")
     print(f"{'test yr':<8}{'chosen params':<48}{'train expR':<11}{'TEST n':<8}{'win%':<7}{'expR':<8}{'PF':<6}{'maxDD%':<7}")
     oos_r = []
-    for y in years[train_years:]:
+    for y in test_years:
         t0, t1 = pd.Timestamp(f"{y - train_years}-01-01"), pd.Timestamp(f"{y}-01-01")
         best, best_score = None, -9
         for c in GRID:
@@ -229,10 +255,21 @@ if __name__ == "__main__":
     ap.add_argument("--replay", action="store_true")
     ap.add_argument("--from", dest="d0"); ap.add_argument("--to", dest="d1")
     ap.add_argument("--synthetic", action="store_true")
+    ap.add_argument("--flat-spreads", action="store_true", help="use modern spreads for every year (optimistic)")
+    ap.add_argument("--be-at", type=float, default=None, help="break-even shield trigger in R, e.g. 1.0")
+    ap.add_argument("--min-stop-spread-ratio", type=float, default=None, help="skip setups where risk / spread < N")
+    ap.add_argument("--min-atr-pips", type=float, default=None, help="skip setups where 20-bar ATR < N pips")
+    ap.add_argument("--max-daily", type=int, default=5, help="max fills per day")
+    ap.add_argument("--start-year", type=int, default=None, help="first test year in walkforward")
     a = ap.parse_args()
+    if a.flat_spreads: ERA_SPREADS = False
+    BE_AT = a.be_at
+    if a.min_stop_spread_ratio is not None: MIN_STOP_SPREAD_RATIO = a.min_stop_spread_ratio
+    if a.min_atr_pips is not None: MIN_ATR_PIPS = a.min_atr_pips
+    if a.max_daily is not None: MAX_DAILY = a.max_daily
     pairs = [p.upper() for p in a.pairs]
     data = {p: load(p, a.src_offset_hours, a.synthetic) for p in pairs}
     if a.verify_causal: verify_causal(data, pairs, a.verify_causal)
-    if a.walkforward or a.synthetic: walkforward(data, pairs)
+    if a.walkforward or a.synthetic: walkforward(data, pairs, start_year=a.start_year)
     if a.replay:
         replay(data, pairs[0], pd.Timestamp(a.d0), pd.Timestamp(a.d1), {"rr": 1.5, "min_body_ratio": 0.35, "killzones_only": True})

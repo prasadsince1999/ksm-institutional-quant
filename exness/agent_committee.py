@@ -110,13 +110,13 @@ class InstitutionalCommittee:
 
         # ── 2. SYSTEM 1 NEURAL COMMITTEE ARBITRATION VIA LOCAL LAYA ──
         if not self.guardian:
-            # Fallback pass
+            # Defensive fail-closed posture: Never blindly approve unvetted setups when committee is offline
             return {
-                "approved": True,
-                "verdict": "QUALIFIED_MAJORITY",
-                "reason": "Rule-based fallback approval",
-                "agent_votes": {"microstructure": True, "macro": True, "risk": True},
-                "lot_multiplier": 1.0,
+                "approved": False,
+                "verdict": "COMMITTEE_OFFLINE_VETO",
+                "reason": "Institutional Committee guardian unavailable (Fail-Safe Defense Active)",
+                "agent_votes": {"microstructure": False, "macro": False, "risk": False},
+                "lot_multiplier": 0.0,
                 "latency_ms": 0.0
             }
 
