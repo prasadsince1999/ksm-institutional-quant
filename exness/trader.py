@@ -203,19 +203,58 @@ class ExnessTrader:
 
         return True
 
-    def count_open_positions(self) -> int:
+    def count_open_positions(self, symbol: str = None) -> int:
         """Returns number of active positions with our magic number."""
         positions = mt5.positions_get()
         if positions is None:
             return 0
+        if symbol:
+            clean_sym = symbol.replace("m", "").replace(".r", "").replace("z", "").upper()
+            return sum(1 for p in positions if p.magic == MAGIC_NUMBER and clean_sym in p.symbol.upper())
         return sum(1 for p in positions if p.magic == MAGIC_NUMBER)
 
     def count_active_orders(self, symbol: str = None) -> int:
         """Returns number of active pending limit orders with our magic number."""
-        orders = mt5.orders_get(symbol=symbol) if symbol else mt5.orders_get()
+        orders = mt5.orders_get()
         if orders is None:
             return 0
+        if symbol:
+            clean_sym = symbol.replace("m", "").replace(".r", "").replace("z", "").upper()
+            return sum(1 for o in orders if o.magic == MAGIC_NUMBER and clean_sym in o.symbol.upper())
         return sum(1 for o in orders if o.magic == MAGIC_NUMBER)
+
+    def get_portfolio_context(self) -> dict:
+        """
+        Retrieves real-time portfolio metrics from MT5:
+          - open_trades: active positions with our magic number
+          - usd_exposure: active positions involving USD
+          - daily_pnl_pct: realized + floating PnL today relative to account balance
+        """
+        positions = mt5.positions_get()
+        our_positions = [p for p in positions if p.magic == MAGIC_NUMBER] if positions else []
+        open_trades = len(our_positions)
+        usd_exposure = sum(1 for p in our_positions if "USD" in p.symbol.upper())
+
+        now_utc = datetime.now(timezone.utc)
+        start_of_day = datetime(now_utc.year, now_utc.month, now_utc.day, tzinfo=timezone.utc)
+        deals = mt5.history_deals_get(start_of_day, now_utc) or []
+        realized_pnl = sum(
+            d.profit + d.swap + d.commission
+            for d in deals
+            if d.magic == MAGIC_NUMBER and d.entry == mt5.DEAL_ENTRY_OUT
+        )
+        floating_pnl = sum(p.profit for p in our_positions)
+        total_pnl = realized_pnl + floating_pnl
+
+        summary = self.mt5_client.get_account_summary()
+        balance = summary["balance"] if summary and summary.get("balance", 0) > 0 else self.starting_balance
+        daily_pnl_pct = (total_pnl / balance) * 100.0 if balance > 0 else 0.0
+
+        return {
+            "open_trades": open_trades,
+            "usd_exposure": usd_exposure,
+            "daily_pnl_pct": round(daily_pnl_pct, 2)
+        }
 
     def place_limit_order(self, setup: dict, is_news_trade: bool = False) -> bool:
         """Places a native pending limit order on Exness MT5."""
@@ -223,7 +262,8 @@ class ExnessTrader:
             return False
 
         symbol = self.mt5_client.resolve_symbol(setup["pair"])
-        setup_key = f"{symbol}_{setup.get('bar', 0)}_{setup['order_type']}"
+        setup_time = setup.get("datetime") or setup.get("timestamp") or setup.get("bar", 0)
+        setup_key = f"{symbol}_{setup_time}_{setup['order_type']}"
         if setup_key in self.last_placed_setup:
             return False
 
@@ -232,8 +272,7 @@ class ExnessTrader:
             return False
 
         # Guard: Ensure we do not already have an active position open on this symbol
-        positions = mt5.positions_get(symbol=symbol)
-        if positions and any(p.magic == MAGIC_NUMBER for p in positions):
+        if self.count_open_positions(symbol) > 0:
             return False
 
         # Guard: Check total portfolio exposure (active positions + active pending limit orders)
@@ -339,13 +378,19 @@ class ExnessTrader:
 
         # System 3: Institutional 3-Agent Committee Arbitration
         if hasattr(self, 'committee') and self.committee:
+            portfolio_ctx = self.get_portfolio_context()
+            is_news_quarantine = (
+                self.news_radar.is_in_quarantine()
+                if hasattr(self, 'news_radar') and self.news_radar
+                else False
+            )
             macro_comm_ctx = {
                 "spread_pips": round(current_spread_pips, 2),
                 "session": current_session,
                 "liquidity_state": "EXPANDING_TREND" if "TREND" in archetype else "LIQUIDITY_SWEEP",
-                "open_usd_trades": sum(1 for p in (mt5.positions_get() or []) if "USD" in p.symbol)
+                "news_threat": is_news_quarantine
             }
-            comm_res = self.committee.evaluate_setup(setup, macro_comm_ctx)
+            comm_res = self.committee.evaluate_setup(setup, macro_comm_ctx, portfolio_ctx)
             print(f"🏛️ [Institutional Committee] Decision: {comm_res.get('decision')} (Multiplier: {comm_res.get('lot_multiplier')}x)")
             if not comm_res.get("approved", True):
                 print(f"🛑 [Institutional Committee] Order vetoed by {comm_res.get('veto_agent')}: {comm_res.get('reasoning')}")
@@ -494,61 +539,12 @@ class ExnessTrader:
 
     def manage_active_positions(self):
         """
-        Audits active positions via Autonomous In-Flight Co-Pilot (Break-Even, Partial TP, Trailing Stop).
+        Audits active positions exclusively via Autonomous In-Flight Co-Pilot
+        (Break-Even at 1.0R, Partial TP at 1.8R, Trailing Stop, and Execution Snapshots).
+        Prevents conflicting threshold thrashing between trader loop and copilot.
         """
         if hasattr(self, 'inflight_copilot') and self.inflight_copilot:
             self.inflight_copilot.audit_active_positions(magic_number=MAGIC_NUMBER)
-
-        positions = mt5.positions_get()
-        if positions is None:
-            return
-
-        for pos in positions:
-            if pos.magic != MAGIC_NUMBER:
-                continue
-
-            symbol = pos.symbol
-            pip = pip_size(symbol)
-            is_buy = (pos.type == mt5.ORDER_TYPE_BUY)
-            open_p = pos.price_open
-            cur_p = pos.price_current
-            sl = pos.sl
-            tp = pos.tp
-
-            # Calculate current R multiple
-            risk_dist = abs(open_p - sl)
-            if risk_dist <= 0:
-                continue
-
-            current_gain = (cur_p - open_p) if is_buy else (open_p - cur_p)
-            current_r = current_gain / risk_dist
-
-            # Break-Even Rule: Move SL to Open Price + 0.3 pips when trade reaches >= +1.4R
-            be_level = open_p + (0.3 * pip) if is_buy else open_p - (0.3 * pip)
-            sl_needs_update = (sl < open_p) if is_buy else (sl > open_p)
-
-            if current_r >= 1.4 and sl_needs_update:
-                print(f"🛡️ BREAK-EVEN SHIELD: {symbol} at +{current_r:.1f}R profit! Moving SL to Break-Even ({be_level}).")
-                req = {
-                    "action": mt5.TRADE_ACTION_SLTP,
-                    "position": pos.ticket,
-                    "symbol": symbol,
-                    "sl": round(be_level, 5 if "JPY" not in symbol else 3),
-                    "tp": tp,
-                }
-                res = mt5.order_send(req)
-                if res and res.retcode == mt5.TRADE_RETCODE_DONE:
-                    print(f"✅ Position {pos.ticket} secured at Risk-Free Break-Even!")
-                    self.tree_logger.log_node({
-                        "event": "BREAK_EVEN_SHIELD_ACTIVATED",
-                        "symbol": symbol,
-                        "position_ticket": pos.ticket,
-                        "r_multiple": round(current_r, 2),
-                        "be_price": be_level
-                    })
-                else:
-                    err = res.comment if res else mt5.last_error()
-                    print(f"⚠️ Failed to update SL to Break-Even: {err}")
 
     def cancel_all_pending_orders(self, reason: str = ""):
         """Cancels all active pending limit orders placed by this EA."""

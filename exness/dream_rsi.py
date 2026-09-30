@@ -276,6 +276,43 @@ class DreamRSIEngine:
         wick = policy["min_wick_ratio"]
         body = policy["min_body_ratio"]
 
+        if trr not in precomputed_outcomes:
+            outcomes = []
+            for c in candidates:
+                entry, sl, r_dist = c["entry"], c["sl"], c["risk_dist"]
+                sig = c["type"]
+                tp = entry + (trr * r_dist) if sig == "BUY" else entry - (trr * r_dist)
+                filled = False
+                res_str = "EXPIRED"
+                r_val = 0.0
+                for b_h, b_l in c["future_bars"]:
+                    if not filled:
+                        if sig == "BUY" and b_l <= entry:
+                            filled = True
+                        elif sig == "SELL" and b_h >= entry:
+                            filled = True
+                    if filled:
+                        if sig == "BUY":
+                            if b_l <= sl:
+                                res_str = "LOSS"
+                                r_val = -1.0
+                                break
+                            elif b_h >= tp:
+                                res_str = "WIN"
+                                r_val = trr
+                                break
+                        elif sig == "SELL":
+                            if b_h >= sl:
+                                res_str = "LOSS"
+                                r_val = -1.0
+                                break
+                            elif b_l <= tp:
+                                res_str = "WIN"
+                                r_val = trr
+                                break
+                outcomes.append((res_str, r_val))
+            precomputed_outcomes[trr] = outcomes
+
         cached_res = precomputed_outcomes[trr]
         w, l = 0, 0
         net = 0.0
@@ -332,10 +369,24 @@ class DreamRSIEngine:
             print(f"  ❌ Could not load world for {pair}")
             return None, False
 
-        # Precompute trade outcomes for all candidate target RRs
-        trr_options = [0.6, 0.7, 0.8, 0.9, 1.0, 1.2]
+        # Retrieve Baseline (pi^0) first so its target_rr is known
+        baseline_policy = self.current_profiles.get(pair, {
+            "target_rr": 1.5,
+            "use_h1_filter": True,
+            "killzones_only": True,
+            "session_sweep_only": False,
+            "min_wick_ratio": 0.4,
+            "min_body_ratio": 0.5
+        })
+
+        # Precompute trade outcomes for all candidate target RRs including baseline
+        trr_options = [0.6, 0.7, 0.8, 0.9, 1.0, 1.2, 1.5, 2.0]
+        needed_trrs = set(trr_options)
+        if "target_rr" in baseline_policy and baseline_policy["target_rr"] is not None:
+            needed_trrs.add(float(baseline_policy["target_rr"]))
+
         precomputed = {}
-        for trr in trr_options:
+        for trr in sorted(needed_trrs):
             outcomes = []
             for c in candidates:
                 entry, sl, r_dist = c["entry"], c["sl"], c["risk_dist"]
@@ -371,16 +422,6 @@ class DreamRSIEngine:
                                 break
                 outcomes.append((res_str, r_val))
             precomputed[trr] = outcomes
-
-        # Retrieve Baseline (pi^0)
-        baseline_policy = self.current_profiles.get(pair, {
-            "target_rr": 0.7,
-            "use_h1_filter": True,
-            "killzones_only": True,
-            "session_sweep_only": False,
-            "min_wick_ratio": 0.4,
-            "min_body_ratio": 0.5
-        })
 
         b_wr, b_pf, b_net, b_tot, b_score = self.simulate_policy_offline(candidates, baseline_policy, precomputed)
         print(f"  Current Deployed Policy (pi^0): WR: {b_wr:.2f}% | PF: {b_pf:.2f} | Net: {b_net:+.1f}R | Trades: {b_tot} | Score: {b_score:.1f}")
@@ -418,8 +459,9 @@ class DreamRSIEngine:
             if tot < min_trade_thresh:
                 continue
 
-            # Dream-RSI Monotonic Filter: Must be strictly higher score AND WR >= 70%
-            if wr >= 70.0 and score > best_score:
+            # Target RR-adjusted win rate threshold (at least 10% above mathematical break-even)
+            min_wr_required = min(70.0, max(38.0, (1.0 / (1.0 + trr)) * 110.0))
+            if wr >= min_wr_required and pf >= 1.20 and score > best_score:
                 best_score = score
                 best_policy = cand_policy
                 best_stats = (wr, pf, net, tot)

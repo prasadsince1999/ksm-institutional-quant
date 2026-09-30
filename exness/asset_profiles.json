@@ -6,12 +6,7 @@
         "killzones_only": true,
         "session_sweep_only": true,
         "min_wick_ratio": 0.45,
-        "min_body_ratio": 0.45,
-        "win_rate": 81.98,
-        "pf": 2.73,
-        "net_r": 226.6,
-        "trades": 727,
-        "last_dream_rsi_upgrade": "2026-09-21T14:44:03.909893"
+        "min_body_ratio": 0.45
     },
     "USDJPY": {
         "pair": "USDJPY",
@@ -20,12 +15,7 @@
         "killzones_only": true,
         "session_sweep_only": false,
         "min_wick_ratio": 0.5,
-        "min_body_ratio": 0.65,
-        "win_rate": 79.67,
-        "pf": 2.35,
-        "net_r": 114.8,
-        "trades": 418,
-        "last_dream_rsi_upgrade": "2026-09-21T14:45:08.350668"
+        "min_body_ratio": 0.65
     },
     "EURUSD": {
         "pair": "EURUSD",
@@ -34,12 +24,7 @@
         "killzones_only": true,
         "session_sweep_only": true,
         "min_wick_ratio": 0.5,
-        "min_body_ratio": 0.35,
-        "win_rate": 81.64,
-        "pf": 2.67,
-        "net_r": 93.4,
-        "trades": 305,
-        "last_dream_rsi_upgrade": "2026-09-21T14:21:25.237566"
+        "min_body_ratio": 0.35
     },
     "XAUUSD": {
         "pair": "XAUUSD",
@@ -51,13 +36,7 @@
         "min_body_ratio": 0.65,
         "enable_trend_fvg": true,
         "enable_judas_breakout": true,
-        "enable_ny_pm_reversal": true,
-        "win_rate": 74.52,
-        "pf": 1.76,
-        "net_r": 3101.6,
-        "trades": 16756,
-        "span_years": 17.5,
-        "last_calibration": "2026-09-18T10:45:00.000000"
+        "enable_ny_pm_reversal": true
     },
     "EURJPY": {
         "pair": "EURJPY",
@@ -66,12 +45,7 @@
         "killzones_only": true,
         "session_sweep_only": true,
         "min_wick_ratio": 0.5,
-        "min_body_ratio": 0.55,
-        "win_rate": 80.46,
-        "pf": 2.47,
-        "net_r": 138.2,
-        "trades": 481,
-        "last_dream_rsi_upgrade": "2026-09-21T16:56:47.170481"
+        "min_body_ratio": 0.55
     },
     "NZDUSD": {
         "pair": "NZDUSD",
@@ -83,12 +57,7 @@
         "min_body_ratio": 0.65,
         "enable_trend_fvg": true,
         "enable_judas_breakout": true,
-        "enable_ny_pm_reversal": true,
-        "win_rate": 78.21,
-        "pf": 2.15,
-        "net_r": 148.8,
-        "trades": 592,
-        "last_calibration": "2026-09-16T15:11:31.474903"
+        "enable_ny_pm_reversal": true
     },
     "AUDUSD": {
         "pair": "AUDUSD",
@@ -97,12 +66,7 @@
         "killzones_only": true,
         "session_sweep_only": false,
         "min_wick_ratio": 0.35,
-        "min_body_ratio": 0.65,
-        "win_rate": 77.9,
-        "pf": 2.11,
-        "net_r": 161.6,
-        "trades": 656,
-        "last_dream_rsi_upgrade": "2026-09-21T16:58:44.806458"
+        "min_body_ratio": 0.65
     },
     "GBPUSD": {
         "pair": "GBPUSD",
@@ -111,12 +75,7 @@
         "killzones_only": true,
         "session_sweep_only": false,
         "min_wick_ratio": 0.35,
-        "min_body_ratio": 0.45,
-        "win_rate": 78.95,
-        "pf": 2.25,
-        "net_r": 285.0,
-        "trades": 1083,
-        "last_dream_rsi_upgrade": "2026-09-21T16:56:01.324730"
+        "min_body_ratio": 0.45
     },
     "USDCAD": {
         "pair": "USDCAD",
@@ -125,12 +84,7 @@
         "killzones_only": false,
         "session_sweep_only": false,
         "min_wick_ratio": 0.35,
-        "min_body_ratio": 0.55,
-        "win_rate": 76.36,
-        "pf": 1.94,
-        "net_r": 748.8,
-        "trades": 3376,
-        "last_dream_rsi_upgrade": "2026-09-21T16:59:35.172264"
+        "min_body_ratio": 0.55
     },
     "USDCHF": {
         "pair": "USDCHF",
@@ -139,11 +93,6 @@
         "killzones_only": true,
         "session_sweep_only": true,
         "min_wick_ratio": 0.45,
-        "min_body_ratio": 0.45,
-        "win_rate": 78.67,
-        "pf": 2.21,
-        "net_r": 276.6,
-        "trades": 1069,
-        "last_dream_rsi_upgrade": "2026-09-21T17:00:02.452811"
+        "min_body_ratio": 0.45
     }
 }
