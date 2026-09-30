@@ -38,7 +38,7 @@ from exness.agent_committee import InstitutionalCommittee
 from exness.telegram_notifier import TelegramNotifier
 
 MAGIC_NUMBER = 987654
-DEFAULT_RISK_PCT = 0.01  # 1% risk per trade ($5.00 on $500 balance)
+DEFAULT_RISK_PCT = 0.005  # 0.5% risk per trade ($2.50 on $500 balance, conservative risk posture)
 MAX_CONCURRENT_TRADES = 3
 MAX_DAILY_TRADES = 5
 CIRCUIT_BREAKER_LOSSES = 3
@@ -885,10 +885,10 @@ if __name__ == "__main__":
     parser.add_argument("--live", action="store_true", help="Enable Live Demo Order Execution (Default: Dry Run / Monitor)")
     parser.add_argument("--loop", action="store_true", help="Run in continuous 60s background scanning loop")
     parser.add_argument("--timeframe", type=int, default=5, choices=[5, 15], help="Execution timeframe in minutes (default: 5 for M5 intraday)")
-    parser.add_argument("--risk", type=float, default=0.01, help="Risk percentage per trade (default: 0.01 = 1%, use 0.015 for 1.5% Champion Model)")
+    parser.add_argument("--risk", type=float, default=0.005, help="Risk percentage per trade (default: 0.005 = 0.5% conservative institutional posture)")
     parser.add_argument("--capital", type=float, default=500.0, help="Starting balance for risk calculations in USD (default: 500.0, matches ~₹41,750 live capital base)")
     parser.add_argument("--mm", type=str, default="fixed_fractional", choices=["anti_martingale", "fixed_fractional", "news_reserve"], help="Money management mode")
-    parser.add_argument("--pairs", type=str, default="XAUUSD,EURJPY,GBPJPY,EURUSD,NZDUSD,USDJPY,AUDUSD,GBPUSD,USDCAD,USDCHF", help="Comma-separated pairs to trade")
+    parser.add_argument("--pairs", type=str, default="GBPJPY,USDCAD,EURJPY,USDJPY,GBPUSD,EURUSD,AUDUSD", help="Validated positive-expectancy pairs to trade (NZDUSD excluded)")
     parser.add_argument("--no-laya", action="store_true", help="Disable Local Laya Backup")
     parser.add_argument("--no-jev", action="store_true", help="Disable TypeSafe Jev Primary Engine")
 

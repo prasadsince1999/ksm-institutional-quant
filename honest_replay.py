@@ -42,6 +42,7 @@ ERA_SPREADS = True      # --flat-spreads turns this off
 BE_AT = None            # --be-at 1.0 mirrors the live copilot's break-even shield
 MIN_STOP_SPREAD_RATIO = None # --min-stop-spread-ratio 8.0 skips trades where stop < 8x spread
 MIN_ATR_PIPS = None          # --min-atr-pips 8.0 skips low-volatility regimes
+SPREAD_MULT = 1.0            # --spread-mult 1.3 widens spreads by 30% for friction stress testing
 
 
 def era_mult(year):
@@ -51,7 +52,7 @@ def era_mult(year):
 
 def spread_pips(pair, hour, year=2025):
     base = BASE_SPREAD["XAU"] if "XAU" in pair else BASE_SPREAD["JPY"] if "JPY" in pair else BASE_SPREAD["DEFAULT"]
-    base = base * era_mult(year)
+    base = base * era_mult(year) * SPREAD_MULT
     if 21 <= hour < 22: return base * 6
     if 0 <= hour < 6:   return base * 2
     if 7 <= hour <= 16: return base
@@ -261,12 +262,18 @@ if __name__ == "__main__":
     ap.add_argument("--min-atr-pips", type=float, default=None, help="skip setups where 20-bar ATR < N pips")
     ap.add_argument("--max-daily", type=int, default=5, help="max fills per day")
     ap.add_argument("--start-year", type=int, default=None, help="first test year in walkforward")
+    ap.add_argument("--slip-pips", type=float, default=None, help="extra loss on stop-outs")
+    ap.add_argument("--penetration-pips", type=float, default=None, help="limit must trade through by N pips")
+    ap.add_argument("--spread-mult", type=float, default=None, help="multiplier on all spreads")
     a = ap.parse_args()
     if a.flat_spreads: ERA_SPREADS = False
     BE_AT = a.be_at
     if a.min_stop_spread_ratio is not None: MIN_STOP_SPREAD_RATIO = a.min_stop_spread_ratio
     if a.min_atr_pips is not None: MIN_ATR_PIPS = a.min_atr_pips
     if a.max_daily is not None: MAX_DAILY = a.max_daily
+    if a.slip_pips is not None: SLIP_PIPS = a.slip_pips
+    if a.penetration_pips is not None: PENETRATION_PIPS = a.penetration_pips
+    if a.spread_mult is not None: SPREAD_MULT = a.spread_mult
     pairs = [p.upper() for p in a.pairs]
     data = {p: load(p, a.src_offset_hours, a.synthetic) for p in pairs}
     if a.verify_causal: verify_causal(data, pairs, a.verify_causal)
