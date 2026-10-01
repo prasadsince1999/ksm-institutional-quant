@@ -55,7 +55,22 @@ All live and simulation order sizing must execute via [`exness/position_sizing.p
 
 ---
 
-## 5. Standard Verification Commands
+## 5. The World-Class Trader Mandate (Zero Retail Illusions)
+All strategy design, quantitative testing, and algorithmic models in this repository must strictly adhere to the audited, peer-reviewed principles of world-class trading legends (Jim Simons, Paul Tudor Jones, Stanley Druckenmiller, Richard Dennis/Turtles, Ed Seykota, Cliff Asness).
+
+1. **Banned Retail Concepts**:
+   - Inverted risk-to-reward ratios (< 1:1, such as 0.6R scalping) that get eradicated by real broker transaction spreads.
+   - Claims of 80%+ win rates. Real-world institutional win rates range between 35% and 52%.
+   - Un-gated 5-minute trend pullbacks without multi-timeframe regime or commercial order flow backing.
+2. **Mandatory Institutional Principles**:
+   - **Asymmetric Payoff ($\ge 1.0\text{R}$ to $5.0\text{R}$)**: Profits must come from large reward-to-risk asymmetry (Paul Tudor Jones 5:1 rule), allowing profitability even at 35%–50% hit rates.
+   - **Volatility-Normalized Position Sizing**: Lot sizes must strictly derive from ATR ($N$) and broker tick values, capping risk at 0.5%–1.0% equity.
+   - **Trend & Regime Filtration**: Entries must align with macro regime filters (e.g. Paul Tudor Jones 200-day moving average, session killzones).
+   - **Capital Preservation Defense**: Hard stop losses with immediate invalidation. Losers are never averaged.
+
+---
+
+## 6. Standard Verification Commands
 - **Quick self-test (15s)**:
   ```bash
   python scripts/verify_system.py --quick
@@ -68,3 +83,4 @@ All live and simulation order sizing must execute via [`exness/position_sizing.p
   ```bash
   python scripts/fill_audit.py --days 30
   ```
+
