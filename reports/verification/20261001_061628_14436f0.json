@@ -1,0 +1,348 @@
+{
+  "meta": {
+    "generated_utc": "2026-10-01T06:16:28.245690+00:00",
+    "commit": "14436f0",
+    "args": {
+      "quick": false,
+      "full": true,
+      "final_exam": false,
+      "config": "C:\\Projects\\Other\\ibt-engine\\config\\frozen_config.json",
+      "pairs": null
+    },
+    "runtime_s": 173.1,
+    "overall": "FAILED",
+    "strategy_sha": "b7247e87073c",
+    "harness_sha": "6471479f484e",
+    "report_sha256": "a4a9e4dc8389c48d"
+  },
+  "results": [
+    {
+      "name": "sizing_unit_and_property",
+      "status": "PASS",
+      "detail": "pip values match closed-form for 10 symbols; 3000 random cases never exceeded 1.25x budget; min-lot refusal works",
+      "numbers": {
+        "worst_risk_ratio": 1.245
+      }
+    },
+    {
+      "name": "selftest_timezone_detector",
+      "status": "PASS",
+      "detail": "aligned clock ratio 4.74 (>=1.4), 5h-shifted ratio 0.99 (<1.4)",
+      "numbers": {
+        "aligned": 4.74,
+        "shifted": 0.99
+      }
+    },
+    {
+      "name": "selftest_fill_audit_math",
+      "status": "PASS",
+      "detail": "synthetic fills with a known 0.5 pip stop slippage measured as 0.5000000000010552 pips; verdict FRICTION_WORSE_THAN_MODEL",
+      "numbers": {
+        "measured_sl_slip": 0.5000000000010552
+      }
+    },
+    {
+      "name": "causality_synthetic",
+      "status": "PASS",
+      "detail": "20 random cut points; setups changed when future bars were added in 0 cases",
+      "numbers": {
+        "checked": 20,
+        "mismatches": 0
+      }
+    },
+    {
+      "name": "selftest_causality_detector_catches_leak",
+      "status": "PASS",
+      "detail": "deliberately leaky strategy flagged in 3/60 cuts (must be > 0)",
+      "numbers": {
+        "flagged": 3,
+        "checked": 60
+      }
+    },
+    {
+      "name": "null_edge_random_walk",
+      "status": "PASS",
+      "detail": "zero-cost martingale random walk, 1655 trades: mean -0.0337R, 95% interval [-0.082, +0.014]. PASS needs upper bound <= +0.05R (engine may not manufacture edge). Lower bound -0.082 shows how conservative the engine is.",
+      "numbers": {
+        "n": 1655,
+        "mean_r": -0.0337,
+        "ci_lo": -0.0818,
+        "ci_hi": 0.0145
+      }
+    },
+    {
+      "name": "selftest_null_detector_catches_leak",
+      "status": "PASS",
+      "detail": "leaky strategy on random data: t=24.89 over 422 trades (must exceed 3.0)",
+      "numbers": {
+        "t": 24.89,
+        "n": 422
+      }
+    },
+    {
+      "name": "cost_monotonicity",
+      "status": "PASS",
+      "detail": "mean R at cost levels 0/1x/2x = -0.100 / -0.241 / -0.355 (must not rise as costs rise)",
+      "numbers": {
+        "zero": -0.1002,
+        "base": -0.2409,
+        "double": -0.3546
+      }
+    },
+    {
+      "name": "timezone_alignment_real_data",
+      "status": "PASS",
+      "detail": "volatility at 07-08 UTC vs 02-03 UTC: EURUSD x1.90, GBPUSD x2.00 (must be >= 1.4; if ~1 the clock is mislabelled and killzones are misaligned)",
+      "numbers": {
+        "EURUSD": 1.9,
+        "GBPUSD": 2.0
+      }
+    },
+    {
+      "name": "causality_real_GBPJPY",
+      "status": "PASS",
+      "detail": "40 random cut points; setups changed when future bars were added in 0 cases",
+      "numbers": {
+        "checked": 40,
+        "mismatches": 0
+      }
+    },
+    {
+      "name": "causality_real_USDCAD",
+      "status": "PASS",
+      "detail": "40 random cut points; setups changed when future bars were added in 0 cases",
+      "numbers": {
+        "checked": 40,
+        "mismatches": 0
+      }
+    },
+    {
+      "name": "claim_gate_RESEARCH",
+      "status": "FAIL",
+      "detail": "[RESEARCH] 2000-01-01..2023-12-31 config 4a0143b9c7a40a80: verdict NO_EDGE. base 95% CI [-0.0726, -0.0414] includes <= 0",
+      "numbers": {
+        "verdict": "NO_EDGE",
+        "config_hash": "4a0143b9c7a40a80",
+        "variants_counted": 15,
+        "bonferroni_z": 2.94,
+        "scenarios": {
+          "BASE": {
+            "n": 17278,
+            "mean": -0.0572,
+            "se": 0.0077,
+            "t": -7.47,
+            "ci_lo": -0.0726,
+            "ci_hi": -0.0414,
+            "win_pct": 47.8,
+            "pf": 0.89,
+            "n_for_80pct_power": 2427
+          },
+          "MILD_STRESS": {
+            "n": 15078,
+            "mean": -0.0744,
+            "se": 0.0082,
+            "t": -9.03,
+            "ci_lo": -0.0907,
+            "ci_hi": -0.0563,
+            "win_pct": 47.2,
+            "pf": 0.86,
+            "n_for_80pct_power": 1448
+          },
+          "SEVERE_STRESS": {
+            "n": 11528,
+            "mean": -0.1023,
+            "se": 0.0094,
+            "t": -10.86,
+            "ci_lo": -0.1218,
+            "ci_hi": -0.0829,
+            "win_pct": 46.1,
+            "pf": 0.82,
+            "n_for_80pct_power": 766
+          }
+        },
+        "by_pair": {
+          "EURJPY": {
+            "n": 2295,
+            "mean_r": -0.0763,
+            "net_r": -175.1
+          },
+          "EURUSD": {
+            "n": 2287,
+            "mean_r": -0.1015,
+            "net_r": -232.1
+          },
+          "GBPJPY": {
+            "n": 3882,
+            "mean_r": -0.0143,
+            "net_r": -55.7
+          },
+          "GBPUSD": {
+            "n": 4268,
+            "mean_r": -0.0502,
+            "net_r": -214.1
+          },
+          "USDCAD": {
+            "n": 1975,
+            "mean_r": -0.0698,
+            "net_r": -137.9
+          },
+          "USDCHF": {
+            "n": 1639,
+            "mean_r": -0.0823,
+            "net_r": -134.8
+          },
+          "USDJPY": {
+            "n": 932,
+            "mean_r": -0.0415,
+            "net_r": -38.7
+          }
+        },
+        "by_year": {
+          "2000": {
+            "n": 105,
+            "mean_r": -0.2005,
+            "net_r": -21.1
+          },
+          "2001": {
+            "n": 171,
+            "mean_r": -0.2279,
+            "net_r": -39.0
+          },
+          "2002": {
+            "n": 119,
+            "mean_r": -0.2036,
+            "net_r": -24.2
+          },
+          "2003": {
+            "n": 200,
+            "mean_r": -0.136,
+            "net_r": -27.2
+          },
+          "2004": {
+            "n": 219,
+            "mean_r": -0.0497,
+            "net_r": -10.9
+          },
+          "2005": {
+            "n": 175,
+            "mean_r": -0.0544,
+            "net_r": -9.5
+          },
+          "2006": {
+            "n": 171,
+            "mean_r": -0.0208,
+            "net_r": -3.6
+          },
+          "2007": {
+            "n": 201,
+            "mean_r": -0.0332,
+            "net_r": -6.7
+          },
+          "2008": {
+            "n": 1048,
+            "mean_r": -0.0247,
+            "net_r": -25.9
+          },
+          "2009": {
+            "n": 1080,
+            "mean_r": -0.0355,
+            "net_r": -38.3
+          },
+          "2010": {
+            "n": 940,
+            "mean_r": -0.1316,
+            "net_r": -123.7
+          },
+          "2011": {
+            "n": 869,
+            "mean_r": -0.1114,
+            "net_r": -96.8
+          },
+          "2012": {
+            "n": 891,
+            "mean_r": -0.0443,
+            "net_r": -39.5
+          },
+          "2013": {
+            "n": 876,
+            "mean_r": -0.0724,
+            "net_r": -63.5
+          },
+          "2014": {
+            "n": 583,
+            "mean_r": -0.1052,
+            "net_r": -61.4
+          },
+          "2015": {
+            "n": 1150,
+            "mean_r": -0.0425,
+            "net_r": -48.9
+          },
+          "2016": {
+            "n": 1213,
+            "mean_r": -0.0514,
+            "net_r": -62.3
+          },
+          "2017": {
+            "n": 1053,
+            "mean_r": -0.0316,
+            "net_r": -33.3
+          },
+          "2018": {
+            "n": 1099,
+            "mean_r": -0.0339,
+            "net_r": -37.3
+          },
+          "2019": {
+            "n": 722,
+            "mean_r": -0.079,
+            "net_r": -57.0
+          },
+          "2020": {
+            "n": 1088,
+            "mean_r": -0.0311,
+            "net_r": -33.8
+          },
+          "2021": {
+            "n": 940,
+            "mean_r": -0.0554,
+            "net_r": -52.1
+          },
+          "2022": {
+            "n": 1234,
+            "mean_r": -0.0184,
+            "net_r": -22.7
+          },
+          "2023": {
+            "n": 1131,
+            "mean_r": -0.0444,
+            "net_r": -50.2
+          }
+        },
+        "by_archetype": {
+          "NY_PM_REVERSAL": {
+            "n": 208,
+            "mean_r": 0.0322,
+            "net_r": 6.7
+          },
+          "SESSION_JUDAS_BREAKOUT": {
+            "n": 3517,
+            "mean_r": -0.0528,
+            "net_r": -185.6
+          },
+          "SWEEP_REVERSAL": {
+            "n": 2114,
+            "mean_r": -0.0562,
+            "net_r": -118.9
+          },
+          "TREND_FVG_PULLBACK": {
+            "n": 11439,
+            "mean_r": -0.0604,
+            "net_r": -690.7
+          }
+        },
+        "top_pair_share": null
+      }
+    }
+  ]
+}

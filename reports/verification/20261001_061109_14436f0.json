@@ -1,0 +1,93 @@
+{
+  "meta": {
+    "generated_utc": "2026-10-01T06:11:09.505368+00:00",
+    "commit": "14436f0",
+    "args": {
+      "quick": true,
+      "full": false,
+      "final_exam": false,
+      "config": "C:\\Projects\\Other\\ibt-engine\\config\\frozen_config.json",
+      "pairs": null
+    },
+    "runtime_s": 17.9,
+    "overall": "ALL_CHECKS_PASSED",
+    "strategy_sha": "b7247e87073c",
+    "harness_sha": "6471479f484e",
+    "report_sha256": "7a7a9c917158a486"
+  },
+  "results": [
+    {
+      "name": "sizing_unit_and_property",
+      "status": "PASS",
+      "detail": "pip values match closed-form for 10 symbols; 3000 random cases never exceeded 1.25x budget; min-lot refusal works",
+      "numbers": {
+        "worst_risk_ratio": 1.245
+      }
+    },
+    {
+      "name": "selftest_timezone_detector",
+      "status": "PASS",
+      "detail": "aligned clock ratio 4.74 (>=1.4), 5h-shifted ratio 0.99 (<1.4)",
+      "numbers": {
+        "aligned": 4.74,
+        "shifted": 0.99
+      }
+    },
+    {
+      "name": "selftest_fill_audit_math",
+      "status": "PASS",
+      "detail": "synthetic fills with a known 0.5 pip stop slippage measured as 0.5000000000010552 pips; verdict FRICTION_WORSE_THAN_MODEL",
+      "numbers": {
+        "measured_sl_slip": 0.5000000000010552
+      }
+    },
+    {
+      "name": "causality_synthetic",
+      "status": "PASS",
+      "detail": "20 random cut points; setups changed when future bars were added in 0 cases",
+      "numbers": {
+        "checked": 20,
+        "mismatches": 0
+      }
+    },
+    {
+      "name": "selftest_causality_detector_catches_leak",
+      "status": "PASS",
+      "detail": "deliberately leaky strategy flagged in 3/60 cuts (must be > 0)",
+      "numbers": {
+        "flagged": 3,
+        "checked": 60
+      }
+    },
+    {
+      "name": "null_edge_random_walk",
+      "status": "PASS",
+      "detail": "zero-cost martingale random walk, 1655 trades: mean -0.0337R, 95% interval [-0.082, +0.014]. PASS needs upper bound <= +0.05R (engine may not manufacture edge). Lower bound -0.082 shows how conservative the engine is.",
+      "numbers": {
+        "n": 1655,
+        "mean_r": -0.0337,
+        "ci_lo": -0.0818,
+        "ci_hi": 0.0145
+      }
+    },
+    {
+      "name": "selftest_null_detector_catches_leak",
+      "status": "PASS",
+      "detail": "leaky strategy on random data: t=24.89 over 422 trades (must exceed 3.0)",
+      "numbers": {
+        "t": 24.89,
+        "n": 422
+      }
+    },
+    {
+      "name": "cost_monotonicity",
+      "status": "PASS",
+      "detail": "mean R at cost levels 0/1x/2x = -0.100 / -0.241 / -0.355 (must not rise as costs rise)",
+      "numbers": {
+        "zero": -0.1002,
+        "base": -0.2409,
+        "double": -0.3546
+      }
+    }
+  ]
+}

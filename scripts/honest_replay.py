@@ -116,10 +116,10 @@ def simulate(df, pair, setups, rr):
         for j in range(fill, min(fill + MAX_HOLD, n)):
             if buy:
                 stop_hit = lo[j] <= cur_sl
-                tp_hit = hi[j] >= tp
+                tp_hit = (hi[j] >= tp) if j > fill else False
             else:
                 stop_hit = hi[j] >= cur_sl - sp    # ask-based stop for shorts
-                tp_hit = lo[j] <= tp - sp
+                tp_hit = (lo[j] <= tp - sp) if j > fill else False
             if stop_hit:                            # SL first if both touched (conservative)
                 if be_done:
                     r = (0.3 * pip - 0.5 * SLIP_PIPS * pip) / risk          # stopped at break-even (+0.3 pip lock, half slip)
@@ -128,7 +128,7 @@ def simulate(df, pair, setups, rr):
                 exit_j = j; break
             if tp_hit:
                 r = rr; exit_j = j; break           # spread already paid via bid/ask trigger levels
-            if BE_AT and not be_done:               # arm break-even for the NEXT bar (no same-bar peeking)
+            if BE_AT and not be_done and j > fill:  # arm break-even for the NEXT bar (no same-bar peeking)
                 reached = (hi[j] >= entry + BE_AT * risk) if buy else (lo[j] <= entry - BE_AT * risk - sp)
                 if reached:
                     be_done = True

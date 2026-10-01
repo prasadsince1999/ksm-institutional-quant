@@ -36,6 +36,7 @@ from exness.inflight_copilot import InFlightCoPilot
 from exness.news_radar import NewsRadar
 from exness.agent_committee import InstitutionalCommittee
 from exness.telegram_notifier import TelegramNotifier
+from exness.position_sizing import pip_value_per_lot_usd, lots_for_risk
 
 MAGIC_NUMBER = 987654
 DEFAULT_RISK_PCT = 0.005  # 0.5% risk per trade ($2.50 on $500 balance, conservative risk posture)
@@ -129,58 +130,49 @@ class ExnessTrader:
 
     def calculate_lot_size(self, symbol: str, risk_pips: float, is_news_trade: bool = False) -> float:
         """
-        Calculates exact volume in lots based on account balance, active risk %, and SL distance.
-        Guarantees risk does not exceed specified risk percentage.
+        Calculates exact volume in lots using broker tick value or live quote conversion.
+        Refuses trades (returns 0.0) if minimum lot risks > 1.25x the budget (MAX_OVERRISK_FACTOR).
         """
         summary = self.mt5_client.get_account_summary()
         if not summary:
-            return 0.01
+            return 0.0
 
         equity = summary["equity"]
         active_risk_pct = self.get_effective_risk_pct(is_news_trade=is_news_trade)
-        dollar_risk = equity * active_risk_pct
 
         details = self.mt5_client.get_symbol_details(symbol)
         if not details:
-            return 0.01
+            return 0.0
 
-        contract_size = details["trade_contract_size"]
-        point = details["point"]
-        vol_min = details["volume_min"]
-        vol_max = details["volume_max"]
-        vol_step = details["volume_step"]
-
-        # Determine pip value per 1.0 standard lot in account currency (USD)
-        # For XXXUSD (EURUSD, GBPUSD): 1 pip = $10 per 1.0 lot
-        # For USDJPY: 1 pip = 1000 JPY / current rate = ~$6.50
+        contract_size = details.get("trade_contract_size", 100000.0)
+        vol_min = details.get("volume_min", 0.01)
+        vol_max = details.get("volume_max", 100.0)
+        vol_step = details.get("volume_step", 0.01)
         pip = pip_size(symbol)
-        clean = symbol.replace("m", "").replace(".r", "").replace("z", "").upper()
-        if clean.endswith("USD") or "XAU" in clean:
-            pip_value_per_std_lot = contract_size * pip
-        elif "JPY" in clean:
-            ask = details["ask"]
-            pip_value_per_std_lot = (contract_size * pip) / ask if ask > 0 else 6.5
-        elif clean.startswith("EUR") and clean.endswith("GBP"):
-            # EURGBP: 1 pip in GBP, convert to USD via GBPUSD
-            gbp_details = self.mt5_client.get_symbol_details("GBPUSD")
-            gbp_rate = gbp_details["ask"] if gbp_details else 1.30
-            pip_value_per_std_lot = (contract_size * pip) * gbp_rate
-        else:
-            pip_value_per_std_lot = 10.0
 
-        # Raw lot calculation: dollar_risk / (risk_pips * pip_val)
-        total_risk_per_std_lot = risk_pips * pip_value_per_std_lot
-        if total_risk_per_std_lot <= 0:
-            return vol_min
+        tick_val = details.get("trade_tick_value", 0.0)
+        tick_sz = details.get("trade_tick_size", 0.0)
 
-        raw_lots = dollar_risk / total_risk_per_std_lot
+        rates = {}
+        for p in ["USDJPY", "USDCAD", "USDCHF", "GBPUSD", "EURUSD", "AUDUSD", "NZDUSD"]:
+            det = self.mt5_client.get_symbol_details(p)
+            if det and det.get("ask", 0.0) > 0:
+                rates[p] = det["ask"]
 
-        # Round down to nearest volume_step (e.g. 0.01)
-        steps = math.floor(raw_lots / vol_step)
-        calculated_lots = steps * vol_step
-        clamped_lots = max(vol_min, min(vol_max, calculated_lots))
+        try:
+            pv = pip_value_per_lot_usd(symbol, contract_size, pip, rates=rates,
+                                       tick_value=tick_val, tick_size=tick_sz)
+        except Exception as e:
+            print(f"⚠️ Sizing conversion error for {symbol}: {e}")
+            return 0.0
 
-        return round(clamped_lots, 2)
+        lots, info = lots_for_risk(equity, active_risk_pct, risk_pips, pv,
+                                   vol_min, vol_max, vol_step)
+        if lots <= 0.0:
+            print(f"🛑 [Sizing Refusal] {symbol}: {info.get('status')} - budget ${info.get('budget_usd')} exceeded by min lot risk (${info.get('min_lot_risk_usd')})")
+            return 0.0
+
+        return lots
 
     def check_daily_discipline(self) -> bool:
         """Enforces daily trade cap and circuit breaker rules based on actual MT5 filled deals."""
@@ -290,6 +282,9 @@ class ExnessTrader:
 
         # Calculate lot size
         lot_size = self.calculate_lot_size(symbol, risk_pips, is_news_trade=is_news_trade)
+        if lot_size <= 0.0:
+            print(f"🛑 [Sizing Refusal] Order rejected for {symbol}: risk exceeds budget or bad input. Skipping.")
+            return False
 
         order_type = mt5.ORDER_TYPE_BUY_LIMIT if order_type_str == "BUY_LIMIT" else mt5.ORDER_TYPE_SELL_LIMIT
 
@@ -801,7 +796,7 @@ class ExnessTrader:
         and evaluates SMC setups only when market conditions are safe.
         """
         if pairs is None:
-            pairs = ["XAUUSD", "EURJPY", "GBPJPY", "EURUSD", "NZDUSD", "USDJPY", "AUDUSD"]
+            pairs = ["GBPJPY", "USDCAD", "EURJPY", "USDJPY", "GBPUSD", "EURUSD", "USDCHF"]
 
         mt5_tf = mt5.TIMEFRAME_M5 if timeframe_m == 5 else mt5.TIMEFRAME_M15
         tf_label = f"M{timeframe_m}"
@@ -888,7 +883,7 @@ if __name__ == "__main__":
     parser.add_argument("--risk", type=float, default=0.005, help="Risk percentage per trade (default: 0.005 = 0.5% conservative institutional posture)")
     parser.add_argument("--capital", type=float, default=500.0, help="Starting balance for risk calculations in USD (default: 500.0, matches ~₹41,750 live capital base)")
     parser.add_argument("--mm", type=str, default="fixed_fractional", choices=["anti_martingale", "fixed_fractional", "news_reserve"], help="Money management mode")
-    parser.add_argument("--pairs", type=str, default="GBPJPY,USDCAD,EURJPY,USDJPY,GBPUSD,EURUSD,AUDUSD", help="Validated positive-expectancy pairs to trade (NZDUSD excluded)")
+    parser.add_argument("--pairs", type=str, default="GBPJPY,USDCAD,EURJPY,USDJPY,GBPUSD,EURUSD,USDCHF", help="Validated positive-expectancy pairs to trade (NZDUSD and AUDUSD excluded)")
     parser.add_argument("--no-laya", action="store_true", help="Disable Local Laya Backup")
     parser.add_argument("--no-jev", action="store_true", help="Disable TypeSafe Jev Primary Engine")
 

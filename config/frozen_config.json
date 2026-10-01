@@ -1,0 +1,21 @@
+{
+  "pairs": [
+    "GBPJPY",
+    "USDCAD",
+    "EURJPY",
+    "USDJPY",
+    "GBPUSD",
+    "EURUSD",
+    "USDCHF"
+  ],
+  "rr": 1.0,
+  "min_body_ratio": 0.35,
+  "killzones_only": true,
+  "min_stop_spread_ratio": 8.0,
+  "min_atr_pips": 5.0,
+  "be_at": 1.0,
+  "src_offset_hours": 5,
+  "research_end": "2023-12-31",
+  "min_trades_for_claim": 1000,
+  "prior_variants_tried": 14
+}
