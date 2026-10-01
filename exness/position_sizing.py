@@ -79,3 +79,21 @@ def lots_for_risk(equity: float, risk_pct: float, risk_pips: float, pip_value_lo
     info["actual_risk_usd"] = round(actual, 4)
     info["actual_risk_pct"] = round(actual / equity, 6)
     return lots, info
+
+
+def calculate_turtle_drawdown_equity(current_equity: float, peak_equity: float) -> float:
+    """
+    Implements the Turtle Trading Account Shrinkage Rule:
+    For every 10% drawdown in equity from the peak, the sizing equity is reduced by 20%.
+    Prevents account ruin during extended drawdown periods.
+    """
+    if peak_equity <= 0 or current_equity <= 0:
+        return current_equity
+    dd_pct = (peak_equity - current_equity) / peak_equity
+    if dd_pct <= 0:
+        return current_equity
+    # Number of full 10% drawdown steps
+    steps = math.floor(dd_pct / 0.10)
+    reduction_factor = (0.80) ** steps
+    return current_equity * reduction_factor
+

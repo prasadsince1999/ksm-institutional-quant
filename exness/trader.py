@@ -36,7 +36,7 @@ from exness.inflight_copilot import InFlightCoPilot
 from exness.news_radar import NewsRadar
 from exness.agent_committee import InstitutionalCommittee
 from exness.telegram_notifier import TelegramNotifier
-from exness.position_sizing import pip_value_per_lot_usd, lots_for_risk
+from exness.position_sizing import pip_value_per_lot_usd, lots_for_risk, calculate_turtle_drawdown_equity
 
 MAGIC_NUMBER = 987654
 DEFAULT_RISK_PCT = 0.005  # 0.5% risk per trade ($2.50 on $500 balance, conservative risk posture)
@@ -85,6 +85,7 @@ class ExnessTrader:
         self.tree_logger = LiveDiscoveryTreeLogger()
         self.audited_deals = set()
         self.last_overnight_run = None
+        self.peak_equity = starting_balance if (starting_balance and starting_balance > 0) else 500.0
 
     def initialize(self) -> bool:
         """Connects to MT5 and checks account state."""
@@ -138,6 +139,8 @@ class ExnessTrader:
             return 0.0
 
         equity = summary["equity"]
+        self.peak_equity = max(getattr(self, 'peak_equity', equity), equity)
+        effective_equity = calculate_turtle_drawdown_equity(equity, self.peak_equity)
         active_risk_pct = self.get_effective_risk_pct(is_news_trade=is_news_trade)
 
         details = self.mt5_client.get_symbol_details(symbol)
@@ -166,7 +169,7 @@ class ExnessTrader:
             print(f"⚠️ Sizing conversion error for {symbol}: {e}")
             return 0.0
 
-        lots, info = lots_for_risk(equity, active_risk_pct, risk_pips, pv,
+        lots, info = lots_for_risk(effective_equity, active_risk_pct, risk_pips, pv,
                                    vol_min, vol_max, vol_step)
         if lots <= 0.0:
             print(f"🛑 [Sizing Refusal] {symbol}: {info.get('status')} - budget ${info.get('budget_usd')} exceeded by min lot risk (${info.get('min_lot_risk_usd')})")
@@ -272,6 +275,20 @@ class ExnessTrader:
         if total_exposure >= MAX_CONCURRENT_TRADES:
             print(f"⚠️ Max concurrent portfolio exposure reached ({MAX_CONCURRENT_TRADES}). Skipping order.")
             return False
+
+        # Turtle Portfolio Correlation Guard: Max 2 concurrent positions in closely correlated assets
+        open_pos = self.mt5_client.get_open_positions() or []
+        open_symbols = [p["symbol"].upper() for p in open_pos]
+        if "JPY" in symbol.upper():
+            jpy_count = sum(1 for s in open_symbols if "JPY" in s)
+            if jpy_count >= 2:
+                print(f"🛑 [Turtle Correlation Guard] Max 2 JPY-correlated positions reached ({jpy_count} active). Skipping {symbol}.")
+                return False
+        if symbol.upper().endswith("USD"):
+            usd_count = sum(1 for s in open_symbols if s.endswith("USD"))
+            if usd_count >= 2:
+                print(f"🛑 [Turtle Correlation Guard] Max 2 USD-quote positions reached ({usd_count} active). Skipping {symbol}.")
+                return False
 
         order_type_str = setup["order_type"]
         entry_price = setup["limit_entry"]

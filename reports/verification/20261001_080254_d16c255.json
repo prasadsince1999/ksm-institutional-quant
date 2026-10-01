@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_utc": "2026-10-01T08:04:47.046665+00:00",
+    "generated_utc": "2026-10-01T08:02:54.821888+00:00",
     "commit": "d16c255",
     "args": {
       "quick": true,
@@ -9,7 +9,7 @@
       "config": "C:\\Projects\\Other\\ibt-engine\\config\\frozen_config.json",
       "pairs": null
     },
-    "runtime_s": 16.7,
+    "runtime_s": 17.1,
     "overall": "ALL_CHECKS_PASSED",
     "strategy_sha": "b7247e87073c",
     "harness_sha": "6471479f484e",
