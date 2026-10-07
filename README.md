@@ -295,3 +295,7 @@ python scripts/regression_benchmark.py
 **Chief Architect**: PrasaD (KSM X Tech)  
 **Engineering Discipline**: Advanced Agentic Coding & Institutional Quant Systems  
 **License**: [MIT](LICENSE)
+
+---
+
+Created with ❤️ by Prasad at KSM × Tech Studio.
